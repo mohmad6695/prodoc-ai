@@ -3,9 +3,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { calculateTotals } from '../../../utils/calculations';
 import { supabase } from '../../../lib/supabaseClient';
-import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
+import { pdf } from '@react-pdf/renderer'; // Only import the generator, not the Viewer
 import InvoicePDF from '../../../components/InvoicePDF';
-import { ChevronLeft, Save, Download, Plus, Trash2, Upload, X, Loader2, Users, Package, FileText, Edit2 } from 'lucide-react';
+import { ChevronLeft, Save, Download, Plus, Trash2, Upload, X, Loader2, Users, Package, FileText, Edit2, Eye } from 'lucide-react';
 import Link from 'next/link';
 
 const initialDocumentState = {
@@ -25,7 +25,7 @@ const initialDocumentState = {
   sender_email: '',
   logo_url: null,
   items: [
-    { id: 1, description: 'Professional Services', quantity: 1, unit_price: 0, tax_rate: 0, amount: 0 },
+    { id: 1, description: '', quantity: 1, unit_price: 0, tax_rate: 0, amount: 0 },
   ],
 };
 
@@ -35,15 +35,22 @@ export default function EditorPage() {
   const documentId = params.id === 'new' ? null : params.id;
   
   const [document, setDocument] = useState(initialDocumentState);
+  // Separate state for the PDF to prevent render crashes on rapid updates
+  const [debouncedDocument, setDebouncedDocument] = useState(initialDocumentState);
+  const [pdfUrl, setPdfUrl] = useState(null); // State to hold the generated PDF Blob URL
+  
   const [profile, setProfile] = useState({});
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [user, setUser] = useState(null);
   
+  // Responsive State
+  const [isDesktop, setIsDesktop] = useState(false);
+
   // MODAL STATES
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState(null); // 'clients', 'items', 'terms', 'save_prompt'
+  const [modalType, setModalType] = useState(null); 
   const [libraryData, setLibraryData] = useState([]);
   
   // Library Management State
@@ -55,8 +62,52 @@ export default function EditorPage() {
   const [newClientData, setNewClientData] = useState(null);
   const [newItemsData, setNewItemsData] = useState([]);
   
-  const [activeTab, setActiveTab] = useState('edit');
   const nextNumberRef = useRef(1);
+
+  // --- DEBOUNCE EFFECT FOR DOCUMENT STATE ---
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedDocument(document);
+    }, 600);
+    return () => clearTimeout(handler);
+  }, [document]);
+
+  // --- PDF BLOB GENERATION EFFECT (Replaces PDFViewer) ---
+  useEffect(() => {
+    let isMounted = true;
+    const generatePdfPreview = async () => {
+      if (!isDesktop) return; // Save resources on mobile
+      try {
+        const currentLogoUrl = document.logo_url || profile.logo_url;
+        const docData = { ...debouncedDocument, logo_url: currentLogoUrl };
+        
+        // Generate Blob manually
+        const blob = await pdf(<InvoicePDF document={docData} />).toBlob();
+        const url = URL.createObjectURL(blob);
+        
+        if (isMounted) {
+            setPdfUrl(prev => {
+                if (prev) URL.revokeObjectURL(prev); // Cleanup memory
+                return url;
+            });
+        }
+      } catch (err) {
+          console.error("Preview Generation Error:", err);
+      }
+    };
+    
+    generatePdfPreview();
+    return () => { isMounted = false; };
+  }, [debouncedDocument, profile.logo_url, isDesktop]);
+
+
+  // --- Check Screen Size ---
+  useEffect(() => {
+    const checkScreen = () => setIsDesktop(window.innerWidth >= 1024);
+    checkScreen();
+    window.addEventListener('resize', checkScreen);
+    return () => window.removeEventListener('resize', checkScreen);
+  }, []);
 
   // --- Initial Data Fetch ---
   const fetchInitialData = useCallback(async () => {
@@ -65,7 +116,6 @@ export default function EditorPage() {
     setUser(user);
 
     let fetchedProfile = {};
-    // 1. Fetch User Profile
     if (user) {
       const { data: profileData } = await supabase.from('business_profiles').select('*').eq('id', user.id).single();
       if (profileData) {
@@ -74,7 +124,6 @@ export default function EditorPage() {
       }
     }
     
-    // 2. Determine Next Document Number
     let nextNumber = 1;
     if (user) {
         const { data: latestDoc } = await supabase.from('documents').select('document_number').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).single();
@@ -86,26 +135,28 @@ export default function EditorPage() {
     nextNumberRef.current = nextNumber;
 
     if (documentId) {
-      // Load Existing
       const { data: docData } = await supabase.from('documents').select(`*, document_items(*)`).eq('id', documentId).single();
       if (docData) {
-        setDocument(calculateTotals({ ...docData, items: docData.document_items.map(item => ({...item, id: item.id})) }));
+        const fullDoc = calculateTotals({ ...docData, items: docData.document_items.map(item => ({...item, id: item.id})) });
+        setDocument(fullDoc);
+        setDebouncedDocument(fullDoc); 
       }
     } else {
-        // Create New - Pre-fill with Profile Data
         const initial = { ...initialDocumentState };
         initial.sender_name = fetchedProfile.business_name || '';
         initial.sender_address = fetchedProfile.address_line_1 || '';
         initial.sender_email = fetchedProfile.email || '';
         initial.logo_url = fetchedProfile.logo_url;
-        // Default number format
         initial.document_number = `${initial.type === 'invoice' ? 'INV' : 'QT'}-${String(nextNumber).padStart(4, '0')}`;
         setDocument(calculateTotals(initial));
+        setDebouncedDocument(calculateTotals(initial));
     }
     setLoading(false);
   }, [documentId]);
   
   useEffect(() => { fetchInitialData(); }, [fetchInitialData]);
+  
+  // Recalculate totals on item change
   useEffect(() => { setDocument((prev) => calculateTotals(prev)); }, [document.items, document.type]);
 
   // --- Library Logic ---
@@ -123,7 +174,6 @@ export default function EditorPage() {
       await fetchLibraryData(type);
   };
 
-  // CRUD for Library inside Modal
   const handleLibrarySave = async (e) => {
       e.preventDefault();
       if (!user) return alert("Session expired. Please log in.");
@@ -151,15 +201,16 @@ export default function EditorPage() {
   };
 
   const handleLibraryDelete = async (id, e) => {
-      e.stopPropagation();
-      if(!confirm("Delete this item permanently?")) return;
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+      if (typeof window !== 'undefined' && !window.confirm("Delete this item permanently?")) return;
+
       const tableName = modalType === 'terms' ? 'saved_terms' : modalType;
       await supabase.from(tableName).delete().eq('id', id);
       setLibraryData(libraryData.filter(i => i.id !== id));
   };
 
   const handleLibraryEdit = (item, e) => {
-      e.stopPropagation();
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
       setLibraryForm(item);
       setLibraryEditingId(item.id);
       setLibraryView('form');
@@ -218,9 +269,42 @@ export default function EditorPage() {
   };
 
   const addItem = () => setDocument(prev => ({ ...prev, items: [...prev.items, { id: Date.now(), description: '', quantity: 1, unit_price: 0, tax_rate: 0, amount: 0 }] }));
-  const removeItem = (id) => setDocument(prev => ({ ...prev, items: prev.items.filter(i => i.id !== id) }));
+  
+  // SAFE REMOVE ITEM
+  const removeItem = (id) => {
+      if (typeof window !== 'undefined' && !window.confirm("Remove this line item?")) {
+          return;
+      }
+      setDocument(prev => ({ ...prev, items: prev.items.filter(i => i.id !== id) }));
+  };
 
-  // --- SMART SAVE LOGIC ---
+  // --- PDF Generation (Download Button) ---
+  const handleDownloadPdf = async () => {
+      setIsDownloading(true);
+      try {
+          const docData = {
+              ...document,
+              logo_url: document.logo_url || profile.logo_url
+          };
+          
+          const blob = await pdf(<InvoicePDF document={docData} />).toBlob();
+          const url = URL.createObjectURL(blob);
+          
+          const link = window.document.createElement('a');
+          link.href = url;
+          link.download = `${document.document_number || 'document'}.pdf`;
+          window.document.body.appendChild(link);
+          link.click();
+          window.document.body.removeChild(link);
+      } catch (error) {
+          console.error("PDF Gen Error:", error);
+          alert("Failed to generate PDF. Please try again.");
+      } finally {
+          setIsDownloading(false);
+      }
+  };
+
+  // --- Save Logic ---
   const handleSaveClick = async () => {
       if (!user) return router.push('/login');
       setIsSaving(true);
@@ -228,7 +312,7 @@ export default function EditorPage() {
       let potentialNewClient = null;
       let potentialNewItems = [];
 
-      if (document.client_name) {
+      if (document.client_name && document.client_name.length > 2) {
           const { data: existingClients } = await supabase.from('clients').select('id').eq('name', document.client_name).limit(1);
           if (!existingClients || existingClients.length === 0) {
               potentialNewClient = {
@@ -268,7 +352,6 @@ export default function EditorPage() {
   };
 
   const handleSmartSaveConfirm = async (saveClient, saveItems) => {
-      if (!user) return; // Guard against null user
       if (saveClient && newClientData) {
           await supabase.from('clients').insert({ ...newClientData, user_id: user.id });
       }
@@ -340,13 +423,7 @@ export default function EditorPage() {
     else alert('Document saved successfully!');
   };
 
-  const handleLogoUpload = async (event) => { /* Reuse logic from before */ }; 
-  const removeLogo = async () => { /* Reuse logic from before */ };
-
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50 text-slate-500">Loading workspace...</div>;
-
-  const currentLogoUrl = document.logo_url || profile.logo_url;
-  const documentForPDF = { ...document, logo_url: currentLogoUrl };
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans relative">
@@ -365,13 +442,13 @@ export default function EditorPage() {
         </div>
       </header>
 
-      {/* 2. Main Content */}
+      {/* 3. Main Content */}
       <div className="flex flex-grow overflow-hidden">
         
-        {/* LEFT PANEL */}
-        <div className={`w-full lg:w-1/2 overflow-y-auto p-4 lg:p-8 space-y-6 ${activeTab === 'edit' ? 'block' : 'hidden lg:block'}`}>
+        {/* LEFT PANEL: Editor (Always visible on mobile) */}
+        <div className="w-full lg:w-1/2 overflow-y-auto p-4 lg:p-8 space-y-6">
             
-            {/* RESTORED: Document Info Card (Type, Ref, Dates) */}
+            {/* Document Info Card */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2">Document Info</h2>
                 <div className="grid grid-cols-2 gap-4">
@@ -426,7 +503,7 @@ export default function EditorPage() {
                     {document.items.map((item) => (
                         <div key={item.id} className="flex gap-3 items-start p-3 bg-slate-50 rounded-lg border border-slate-100">
                              <div className="flex-grow space-y-2">
-                                <input name="description" placeholder="Description" value={item.description} onChange={(e) => handleItemChange(item.id, 'description', e.target.value)} className="w-full bg-transparent border-b border-slate-200 focus:border-blue-500 outline-none text-sm font-medium" />
+                                <input name="description" placeholder="Enter your product or service" value={item.description} onChange={(e) => handleItemChange(item.id, 'description', e.target.value)} className="w-full bg-transparent border-b border-slate-200 focus:border-blue-500 outline-none text-sm font-medium placeholder:text-slate-400" />
                                 <div className="flex gap-2">
                                     <div className="w-20"><input type="number" name="quantity" value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)} className="w-full bg-white p-1 rounded border border-slate-200 text-xs" /></div>
                                     <div className="w-24"><input type="number" name="unit_price" value={item.unit_price} onChange={(e) => handleItemChange(item.id, 'unit_price', e.target.value)} className="w-full bg-white p-1 rounded border border-slate-200 text-xs" /></div>
@@ -435,7 +512,7 @@ export default function EditorPage() {
                              </div>
                              <div className="text-right pt-6">
                                 <div className="text-sm font-bold">${item.amount.toFixed(2)}</div>
-                                <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600 mt-2"><Trash2 size={14} /></button>
+                                <button type="button" onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600 mt-2"><Trash2 size={14} /></button>
                              </div>
                         </div>
                     ))}
@@ -451,25 +528,50 @@ export default function EditorPage() {
                 </div>
                 <textarea name="notes" value={document.notes} onChange={handleChange} rows={3} className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none" />
             </div>
+
+            {/* NEW: Mobile Download Button (Visible only on LG screens and below) */}
+            <div className="lg:hidden mt-6 pt-4 border-t border-slate-200 pb-8 flex flex-col items-center">
+                 <button 
+                    onClick={handleDownloadPdf}
+                    disabled={isDownloading}
+                    className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-md active:scale-95 transition"
+                 >
+                    <Download size={18} /> 
+                    {isDownloading ? 'Preparing...' : 'Download PDF'}
+                 </button>
+            </div>
+
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className={`w-full lg:w-1/2 bg-slate-100 overflow-y-auto flex flex-col items-center p-8 lg:p-12 ${activeTab === 'preview' ? 'block' : 'hidden lg:flex'}`}>
+        {/* RIGHT PANEL: Live Preview (Hidden on Mobile) */}
+        <div className="hidden lg:flex w-full lg:w-1/2 bg-slate-100 overflow-y-auto flex-col items-center p-8 lg:p-12">
             <div className="w-full max-w-md mb-6 flex justify-between items-center">
                  <h2 className="text-slate-500 font-bold uppercase text-sm tracking-wider">Live Preview</h2>
-                 <PDFDownloadLink document={<InvoicePDF document={documentForPDF} />} fileName={`${document.document_number}.pdf`}>
-                    {({ loading }) => (
-                         <button className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:underline">
-                            <Download size={16} /> {loading ? 'Preparing...' : 'Download PDF'}
-                         </button>
-                    )}
-                 </PDFDownloadLink>
+                 {/* Only mount PDFViewer on Desktop */}
+                 {isDesktop && (
+                    <button 
+                        onClick={handleDownloadPdf}
+                        disabled={isDownloading}
+                        className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:underline"
+                    >
+                        <Download size={16} /> {isDownloading ? 'Preparing...' : 'Download PDF'}
+                    </button>
+                 )}
             </div>
-            <div className="bg-white w-full max-w-[210mm] aspect-[1/1.414] shadow-2xl rounded-sm overflow-hidden border border-slate-200 transition-transform duration-300">
-                 <PDFViewer width="100%" height="100%" showToolbar={false} className="w-full h-full">
-                     <InvoicePDF document={documentForPDF} />
-                 </PDFViewer>
-            </div>
+            {isDesktop && (
+                <div className="bg-white w-full max-w-[210mm] aspect-[1/1.414] shadow-2xl rounded-sm overflow-hidden border border-slate-200 transition-transform duration-300">
+                     {/* Replaced PDFViewer with secure Iframe */}
+                     {pdfUrl ? (
+                         <iframe 
+                            src={`${pdfUrl}#toolbar=0&view=FitH`} 
+                            className="w-full h-full border-none" 
+                            title="PDF Preview"
+                         />
+                     ) : (
+                         <div className="flex items-center justify-center h-full text-slate-400 animate-pulse">Generating Preview...</div>
+                     )}
+                </div>
+            )}
         </div>
 
       </div>
@@ -526,7 +628,7 @@ export default function EditorPage() {
                                 <form onSubmit={handleLibrarySave} className="space-y-3">
                                     {modalType === 'clients' && (
                                         <>
-                                            <Input label="Name" value={libraryForm.name} onChange={e => setLibraryForm({...libraryForm, name: e.target.value})} required />
+                                            <Input label="Name / Company" value={libraryForm.name} onChange={e => setLibraryForm({...libraryForm, name: e.target.value})} required />
                                             <Input label="Email" value={libraryForm.email} onChange={e => setLibraryForm({...libraryForm, email: e.target.value})} />
                                             <TextArea label="Address" value={libraryForm.address} onChange={e => setLibraryForm({...libraryForm, address: e.target.value})} />
                                         </>
@@ -534,7 +636,7 @@ export default function EditorPage() {
                                     {modalType === 'items' && (
                                         <>
                                             <Input label="Name" value={libraryForm.name} onChange={e => setLibraryForm({...libraryForm, name: e.target.value})} required />
-                                            <TextArea label="Description" value={libraryForm.description} onChange={e => setLibraryForm({...libraryForm, description: e.target.value})} />
+                                            <TextArea label="Description" value={libraryForm.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                                             <div className="grid grid-cols-2 gap-2">
                                                 <Input label="Price" type="number" value={libraryForm.unit_price} onChange={e => setLibraryForm({...libraryForm, unit_price: e.target.value})} />
                                                 <Input label="Tax %" type="number" value={libraryForm.tax_rate} onChange={e => setLibraryForm({...libraryForm, tax_rate: e.target.value})} />
@@ -544,7 +646,7 @@ export default function EditorPage() {
                                     {modalType === 'terms' && (
                                         <>
                                             <Input label="Label (e.g. Standard)" value={libraryForm.label} onChange={e => setLibraryForm({...libraryForm, label: e.target.value})} required />
-                                            <TextArea label="Content" rows={5} value={libraryForm.content} onChange={e => setLibraryForm({...libraryForm, content: e.target.value})} />
+                                            <TextArea label="Content" rows={5} value={libraryForm.content} onChange={e => setFormData({...formData, content: e.target.value})} />
                                         </>
                                     )}
                                     <div className="flex gap-2 pt-2">
@@ -575,21 +677,25 @@ export default function EditorPage() {
 }
 
 // Reusable Inputs for Modal
-const Input = ({ label, value, onChange, type='text', placeholder, required }) => (
-    <div>
-        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{label}</label>
-        <input type={type} value={value || ''} onChange={onChange} placeholder={placeholder} required={required} className="w-full p-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-    </div>
-);
+function Input({ label, value, onChange, type='text', placeholder, required }) {
+    return (
+        <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{label}</label>
+            <input type={type} value={value || ''} onChange={onChange} placeholder={placeholder} required={required} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition text-sm" />
+        </div>
+    );
+}
 
-const TextArea = ({ label, value, onChange, rows=2, placeholder }) => (
-    <div>
-        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{label}</label>
-        <textarea value={value || ''} onChange={onChange} rows={rows} placeholder={placeholder} className="w-full p-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none" />
-    </div>
-);
+function TextArea({ label, value, onChange, rows=2, placeholder }) {
+    return (
+        <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{label}</label>
+            <textarea value={value || ''} onChange={onChange} rows={rows} placeholder={placeholder} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition resize-none text-sm" />
+        </div>
+    );
+}
 
-const SavePrompt = ({ newClient, newItems, onConfirm, onCancel }) => {
+function SavePrompt({ newClient, newItems, onConfirm, onCancel }) {
     const [saveClient, setSaveClient] = useState(!!newClient);
     const [saveItems, setSaveItems] = useState(!!newItems.length);
 
@@ -624,4 +730,4 @@ const SavePrompt = ({ newClient, newItems, onConfirm, onCancel }) => {
             </div>
         </div>
     );
-};
+}

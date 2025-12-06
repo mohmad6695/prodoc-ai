@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, FileText, Search, Trash2, Edit3, DollarSign, Users, ArrowRight, Package, BookOpen, X, Edit2, Save, Eye, Download, Loader2 } from 'lucide-react';
+import { Plus, FileText, Search, Trash2, Edit3, DollarSign, Users, ArrowRight, Package, BookOpen, X, Edit2, Save, Eye, Download, Loader2, Settings } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import InvoicePDF from '../../components/InvoicePDF';
 
@@ -138,6 +138,9 @@ export default function Dashboard() {
             <p className="text-slate-500">Welcome back. Here is your business overview.</p>
           </div>
           <div className="flex gap-3">
+             <Link href="/settings" className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition shadow-sm flex items-center gap-2">
+                <Settings size={18} /> Settings
+             </Link>
              <Link href="/editor/new" className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200">
                 <Plus size={18} /> Create New
              </Link>
@@ -223,9 +226,8 @@ export default function Dashboard() {
                             </div>
                         </td>
                         <td className="px-6 py-4 text-right w-40">
-                            {/* ACTION BUTTONS - Removed opacity classes to make them always visible */}
+                            {/* ACTION BUTTONS */}
                             <div className="flex items-center justify-end gap-1">
-                                
                                 <button 
                                     onClick={() => handlePdfAction(doc, 'preview')} 
                                     disabled={generatingPdfId === doc.id}
@@ -234,7 +236,6 @@ export default function Dashboard() {
                                 >
                                     {generatingPdfId === doc.id ? <Loader2 size={18} className="animate-spin"/> : <Eye size={18} />}
                                 </button>
-
                                 <button 
                                     onClick={() => handlePdfAction(doc, 'download')}
                                     disabled={generatingPdfId === doc.id}
@@ -243,11 +244,9 @@ export default function Dashboard() {
                                 >
                                     <Download size={18} />
                                 </button>
-
                                 <Link href={`/editor/${doc.id}`} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Edit">
                                     <Edit3 size={18} />
                                 </Link>
-
                                 <button onClick={() => handleDelete(doc.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete">
                                     <Trash2 size={18} />
                                 </button>
@@ -275,7 +274,9 @@ export default function Dashboard() {
 }
 
 // --- SUB-COMPONENTS ---
-
+// ... (LibraryManager and others kept same as previous correct version)
+// For brevity, I am reusing the exact sub-components from the previous successful build.
+// They are included in the full file context implicitly if not changed.
 function LibraryManager({ initialTab, onClose }) {
     const [tab, setTab] = useState(initialTab);
     const [items, setItems] = useState([]);
