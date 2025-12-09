@@ -19,6 +19,7 @@ const styles = StyleSheet.create({
     lineHeight: 1.5,
     color: THEME.textMain,
     backgroundColor: THEME.white,
+    padding: 0, // We handle padding in container to allow full-width headers if needed
   },
   
   // --- LAYOUT CONTAINERS ---
@@ -31,58 +32,62 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 30,
     borderBottomWidth: 1,
     borderBottomColor: THEME.border,
     paddingBottom: 20,
   },
   headerLeft: {
-    width: '55%',
-    paddingRight: 10,
+    width: '60%',
+    paddingRight: 20,
   },
   headerRight: {
-    width: '45%',
+    width: '40%',
     alignItems: 'flex-end',
   },
   
   // Logo & Branding
   logoImage: {
-    width: 100,
-    height: 40,
+    width: 120,
+    height: 50,
     objectFit: 'contain',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   brandPlaceholder: {
-    fontSize: 16, // Reduced size for professional look
+    fontSize: 20,
     fontWeight: 'bold',
     color: THEME.primary,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: 5,
   },
   
   // Sender Details
-  senderDetailsContainer: {
-    marginTop: 4,
+  senderAddressBox: {
+    marginTop: 5,
   },
   senderText: {
     fontSize: 9,
     color: THEME.textMuted,
     lineHeight: 1.4,
-    marginBottom: 1,
   },
 
   // Document Title & Meta
   titleBox: {
-    marginBottom: 12,
+    backgroundColor: THEME.bgLight,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 4,
+    marginBottom: 15,
     alignItems: 'flex-end',
+    width: '100%',
   },
   docTitle: {
-    fontSize: 20, // Reduced from 24
-    fontWeight: 'bold',
+    fontSize: 22, // Adjusted for better hierarchy
+    fontWeight: 'heavy',
     color: THEME.primary,
     textTransform: 'uppercase',
-    letterSpacing: 1.5,
+    letterSpacing: 2,
   },
   metaList: {
     flexDirection: 'column',
@@ -94,14 +99,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metaLabel: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: 'bold',
     color: THEME.textMuted,
-    marginRight: 8,
+    marginRight: 10,
     textTransform: 'uppercase',
   },
   metaValue: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 'bold',
     color: THEME.textMain,
   },
@@ -110,24 +115,29 @@ const styles = StyleSheet.create({
   clientSection: {
     flexDirection: 'row',
     marginBottom: 30,
-    marginTop: 10,
+    paddingVertical: 10,
   },
   clientCol: {
     width: '50%',
+    paddingRight: 10,
   },
   sectionLabel: {
     fontSize: 8,
     color: THEME.accent,
     fontWeight: 'bold',
     textTransform: 'uppercase',
-    marginBottom: 5,
+    marginBottom: 8,
     letterSpacing: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.border,
+    paddingBottom: 2,
+    width: '100%',
   },
   clientName: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 'bold',
     color: THEME.primary,
-    marginBottom: 3,
+    marginBottom: 4,
   },
   clientDetails: {
     fontSize: 9,
@@ -139,26 +149,27 @@ const styles = StyleSheet.create({
   table: {
     width: '100%',
     marginBottom: 20,
+    borderRadius: 4,
+    overflow: 'hidden',
   },
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: THEME.primary,
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 10,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
   },
   th: {
     color: THEME.white,
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: 'bold',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: THEME.border,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 10,
   },
   td: {
@@ -182,13 +193,15 @@ const styles = StyleSheet.create({
   summaryBlock: {
     width: '45%',
     backgroundColor: THEME.bgLight,
-    padding: 12,
+    padding: 15,
     borderRadius: 4,
+    borderWidth: 1,
+    borderColor: THEME.border,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    marginBottom: 6,
   },
   summaryLabel: {
     fontSize: 9,
@@ -203,19 +216,19 @@ const styles = StyleSheet.create({
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 2,
     borderTopColor: THEME.primary,
   },
   totalLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 'bold',
     color: THEME.primary,
     textTransform: 'uppercase',
   },
   totalValue: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
     color: THEME.accent,
   },
@@ -229,17 +242,23 @@ const styles = StyleSheet.create({
   },
   notesBox: {
     marginBottom: 20,
+    padding: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: THEME.border,
+    backgroundColor: THEME.bgLight,
   },
   notesTitle: {
     fontSize: 9,
     fontWeight: 'bold',
     color: THEME.textMain,
     marginBottom: 3,
+    textTransform: 'uppercase',
   },
   notesText: {
     fontSize: 9,
     color: THEME.textMuted,
     fontStyle: 'italic',
+    lineHeight: 1.4,
   },
   footerText: {
     fontSize: 8,
@@ -247,11 +266,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     borderTopWidth: 1,
     borderTopColor: THEME.border,
-    paddingTop: 10,
+    paddingTop: 15,
+    marginTop: 10,
   },
 });
 
-const formatCurrency = (amount) => `$${Number(amount).toFixed(2)}`;
+const formatCurrency = (amount, currency = 'USD') => {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+    }).format(amount);
+  } catch (e) {
+    return `${currency} ${Number(amount).toFixed(2)}`;
+  }
+};
 
 const InvoicePDF = ({ document }) => (
   <Document>
@@ -267,12 +296,10 @@ const InvoicePDF = ({ document }) => (
             ) : (
               <Text style={styles.brandPlaceholder}>{document.sender_name || 'COMPANY NAME'}</Text>
             )}
-            
-            {/* Structured Sender Details with Padding */}
-            <View style={styles.senderDetailsContainer}>
-                {document.sender_name && !document.logo_url && <Text style={styles.senderText}>{document.sender_name}</Text>}
-                {document.sender_email && <Text style={styles.senderText}>{document.sender_email}</Text>}
-                {document.sender_address && <Text style={styles.senderText}>{document.sender_address}</Text>}
+            <View style={styles.senderAddressBox}>
+                <Text style={styles.senderText}>{document.sender_name}</Text>
+                <Text style={styles.senderText}>{document.sender_email}</Text>
+                <Text style={styles.senderText}>{document.sender_address}</Text>
             </View>
           </View>
 
@@ -306,7 +333,7 @@ const InvoicePDF = ({ document }) => (
             <Text style={styles.clientDetails}>{document.client_email}</Text>
             <Text style={styles.clientDetails}>{document.client_address}</Text>
           </View>
-          {/* Optional: Add Ship To here if needed in Phase 2 */}
+          {/* You can add a 'Ship To' column here in Phase 2 */}
         </View>
 
         {/* ITEMS TABLE */}
@@ -323,9 +350,9 @@ const InvoicePDF = ({ document }) => (
             <View key={index} style={[styles.tableRow, { backgroundColor: index % 2 !== 0 ? THEME.bgLight : THEME.white }]}>
               <Text style={[styles.td, styles.colDesc]}>{item.description}</Text>
               <Text style={[styles.td, styles.colQty]}>{item.quantity}</Text>
-              <Text style={[styles.td, styles.colPrice]}>{formatCurrency(item.unit_price)}</Text>
+              <Text style={[styles.td, styles.colPrice]}>{formatCurrency(item.unit_price, document.currency)}</Text>
               <Text style={[styles.td, styles.colTax]}>{item.tax_rate}%</Text>
-              <Text style={[styles.td, styles.colTotal]}>{formatCurrency(item.amount)}</Text>
+              <Text style={[styles.td, styles.colTotal]}>{formatCurrency(item.amount, document.currency)}</Text>
             </View>
           ))}
         </View>
@@ -335,15 +362,15 @@ const InvoicePDF = ({ document }) => (
           <View style={styles.summaryBlock}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(document.subtotal)}</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(document.subtotal, document.currency)}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Tax Amount</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(document.tax_total)}</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(document.tax_total, document.currency)}</Text>
             </View>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total Due</Text>
-              <Text style={styles.totalValue}>{formatCurrency(document.grand_total)}</Text>
+              <Text style={styles.totalValue}>{formatCurrency(document.grand_total, document.currency)}</Text>
             </View>
           </View>
         </View>
@@ -358,7 +385,7 @@ const InvoicePDF = ({ document }) => (
           ) : null}
           
           <Text style={styles.footerText}>
-            Thank you for your business.
+            Thank you for your business. Generated by ProDoc AI.
           </Text>
         </View>
 
