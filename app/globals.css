@@ -24,3 +24,26 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* --- VALIDATION/ERROR STYLING FIX (ENHANCED) --- */
+
+/* Target any input/textarea that is currently invalid and has been interacted with */
+input:invalid:not(:focus):not([disabled]):not(:placeholder-shown), 
+textarea:invalid:not(:focus):not([disabled]):not(:placeholder-shown) {
+    /* Critical: Apply distinct red border and shadow */
+    border-color: #ef4444 !important; /* Tailwind red-500 */
+    box-shadow: 0 0 0 1px #ef4444 !important;
+}
+
+/* Target invalid inputs when focused, ensuring the error persists visually */
+input:invalid:focus,
+textarea:invalid:focus {
+    border-color: #f87171 !important; /* Red-400 */
+    box-shadow: 0 0 0 2px #f87171 !important;
+}
+
+/* Ensure number inputs (like in line items) show red clearly */
+input[type="number"]:invalid {
+    border-color: #ef4444 !important; 
+    box-shadow: 0 0 0 1px #ef4444 !important;
+}

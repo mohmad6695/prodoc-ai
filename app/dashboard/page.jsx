@@ -226,7 +226,6 @@ export default function Dashboard() {
                             </div>
                         </td>
                         <td className="px-6 py-4 text-right w-40">
-                            {/* ACTION BUTTONS */}
                             <div className="flex items-center justify-end gap-1">
                                 <button 
                                     onClick={() => handlePdfAction(doc, 'preview')} 
@@ -274,9 +273,7 @@ export default function Dashboard() {
 }
 
 // --- SUB-COMPONENTS ---
-// ... (LibraryManager and others kept same as previous correct version)
-// For brevity, I am reusing the exact sub-components from the previous successful build.
-// They are included in the full file context implicitly if not changed.
+
 function LibraryManager({ initialTab, onClose }) {
     const [tab, setTab] = useState(initialTab);
     const [items, setItems] = useState([]);
@@ -299,6 +296,35 @@ function LibraryManager({ initialTab, onClose }) {
 
     const handleSave = async (e) => {
         e.preventDefault();
+        
+        // --- VALIDATION LOGIC ---
+        if (tab === 'clients') {
+            if (formData.email) {
+                // Basic email regex
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(formData.email)) {
+                    return alert("Please enter a valid email address.");
+                }
+            }
+            if (formData.phone) {
+                // Allows digits, +, -, space, (), ., and requires at least 7 chars
+                const phoneRegex = /^[\d\+\-\s\(\).]{7,}$/;
+                if (!phoneRegex.test(formData.phone)) {
+                    return alert("Please enter a valid phone number.");
+                }
+            }
+        }
+        
+        if (tab === 'items') {
+             if (formData.unit_price && parseFloat(formData.unit_price) < 0) {
+                 return alert("Price cannot be negative.");
+             }
+             if (formData.tax_rate && parseFloat(formData.tax_rate) < 0) {
+                 return alert("Tax rate cannot be negative.");
+             }
+        }
+        // ------------------------
+
         const { data: { user } } = await supabase.auth.getUser();
         const payload = { ...formData, user_id: user.id };
         
@@ -354,7 +380,8 @@ function LibraryManager({ initialTab, onClose }) {
                             {tab === 'clients' && (
                                 <>
                                     <Input label="Name / Company" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
-                                    <Input label="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                                    <Input label="Email" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                                    <Input label="Phone" type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                                     <TextArea label="Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                                 </>
                             )}
@@ -363,8 +390,8 @@ function LibraryManager({ initialTab, onClose }) {
                                     <Input label="Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
                                     <TextArea label="Description" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                                     <div className="grid grid-cols-2 gap-2">
-                                        <Input label="Price" type="number" value={formData.unit_price} onChange={e => setFormData({...formData, unit_price: e.target.value})} />
-                                        <Input label="Tax %" type="number" value={formData.tax_rate} onChange={e => setFormData({...formData, tax_rate: e.target.value})} />
+                                        <Input label="Price" type="number" min="0" step="0.01" value={formData.unit_price} onChange={e => setFormData({...formData, unit_price: e.target.value})} />
+                                        <Input label="Tax %" type="number" min="0" step="0.01" value={formData.tax_rate} onChange={e => setFormData({...formData, tax_rate: e.target.value})} />
                                     </div>
                                 </>
                             )}
@@ -397,6 +424,8 @@ function LibraryManager({ initialTab, onClose }) {
                                     <div>
                                         <div className="font-bold text-slate-800">{item.name || item.label}</div>
                                         <div className="text-xs text-slate-500 mt-1 line-clamp-2">{item.email || item.description || item.content}</div>
+                                        {/* Show phone in list if present */}
+                                        {tab === 'clients' && item.phone && <div className="text-xs text-slate-400 mt-0.5">{item.phone}</div>}
                                         {item.unit_price && <div className="text-xs font-bold text-blue-600 mt-1">${item.unit_price}</div>}
                                     </div>
                                     <div className="flex gap-2">
@@ -422,11 +451,19 @@ function TabBtn({ active, children, onClick }) {
     );
 }
 
-function Input({ label, value, onChange, type='text', placeholder, required }) {
+function Input({ label, value, onChange, type='text', placeholder, required, ...props }) {
     return (
         <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{label}</label>
-            <input type={type} value={value || ''} onChange={onChange} placeholder={placeholder} required={required} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition text-sm" />
+            <input 
+                type={type} 
+                value={value || ''} 
+                onChange={onChange} 
+                placeholder={placeholder} 
+                required={required} 
+                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition text-sm" 
+                {...props}
+            />
         </div>
     );
 }

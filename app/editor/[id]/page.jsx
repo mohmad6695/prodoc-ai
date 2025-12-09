@@ -6,7 +6,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import dynamic from 'next/dynamic';
 import { pdf } from '@react-pdf/renderer'; 
 import InvoicePDF from '../../../components/InvoicePDF';
-import { ChevronLeft, Save, Download, Plus, Trash2, Upload, X, Loader2, Users, Package, FileText, Edit2, Eye, Globe } from 'lucide-react';
+import { ChevronLeft, Save, Download, Plus, Trash2, Upload, X, Loader2, Users, Package, FileText, Edit2, Eye, Globe, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 // Dynamically import PDFViewer to avoid SSR issues and heavy loading on mobile
@@ -22,21 +22,12 @@ const CURRENCIES = [
   { code: 'EUR', label: 'EUR - Euro', symbol: '€' },
   { code: 'GBP', label: 'GBP - British Pound', symbol: '£' },
   { code: 'INR', label: 'INR - Indian Rupee', symbol: '₹' },
-  { code: 'CAD', label: 'CAD - Canadian Dollar', symbol: '$' },
-  { code: 'AUD', label: 'AUD - Australian Dollar', symbol: '$' },
-  { code: 'JPY', label: 'JPY - Japanese Yen', symbol: '¥' },
-  { code: 'CNY', label: 'CNY - Chinese Yuan', symbol: '¥' },
-  { code: 'SGD', label: 'SGD - Singapore Dollar', symbol: '$' },
-  { code: 'CHF', label: 'CHF - Swiss Franc', symbol: 'Fr' },
-  { code: 'ZAR', label: 'ZAR - South African Rand', symbol: 'R' },
-  { code: 'SAR', label: 'SAR - Saudi Riyal', symbol: '﷼' },
-  // Add more as needed
 ];
 
 const initialDocumentState = {
   document_number: 'QT-0001',
   type: 'quotation',
-  currency: 'AED', // Default Currency Updated
+  currency: 'AED',
   issue_date: new Date().toISOString().substring(0, 10),
   due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
   subtotal: 0,
@@ -45,17 +36,18 @@ const initialDocumentState = {
   client_name: '',
   client_address: '',
   client_email: '',
+  client_phone: '',
   notes: 'Payment is due within 7 days. Thank you for your business!',
   sender_name: '',
   sender_address: '',
   sender_email: '',
+  sender_phone: '',
   logo_url: null,
   items: [
-    { id: 1, description: '', quantity: 1, unit_price: 0, tax_rate: 0, amount: 0 },
+    { id: 1, name: '', description: '', quantity: 1, unit_price: 0, tax_rate: 0, amount: 0 },
   ],
 };
 
-// Helper to format currency dynamically
 const formatCurrency = (amount, currencyCode = 'AED') => {
   try {
     return new Intl.NumberFormat('en-US', {
@@ -73,36 +65,45 @@ export default function EditorPage() {
   const documentId = params.id === 'new' ? null : params.id;
   
   const [document, setDocument] = useState(initialDocumentState);
-  // Separate state for the PDF to prevent render crashes on rapid updates
   const [debouncedDocument, setDebouncedDocument] = useState(initialDocumentState);
   const [pdfUrl, setPdfUrl] = useState(null); 
   
   const [profile, setProfile] = useState({});
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [user, setUser] = useState(null);
-  
-  // Responsive State
   const [isDesktop, setIsDesktop] = useState(false);
-
-  // MODAL STATES
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null); 
   const [libraryData, setLibraryData] = useState([]);
-  
-  // Library Management State
   const [libraryView, setLibraryView] = useState('list'); 
   const [libraryForm, setLibraryForm] = useState({});
   const [libraryEditingId, setLibraryEditingId] = useState(null);
-
-  // Smart Save State
   const [newClientData, setNewClientData] = useState(null);
   const [newItemsData, setNewItemsData] = useState([]);
   
   const nextNumberRef = useRef(1);
+  const editorFormRef = useRef(null); 
 
-  // --- DEBOUNCE EFFECT FOR DOCUMENT STATE ---
+  // --- VALIDATION LOGIC ---
+  const validateDocument = () => {
+    // Manually trigger HTML5 validation on the form ref
+    if (editorFormRef.current && !editorFormRef.current.checkValidity()) {
+        editorFormRef.current.reportValidity(); // Forces browser to display errors
+        return false;
+    }
+
+    // Check Line Items Count (cannot be 0)
+    if (!document.items || document.items.length === 0) {
+      alert("Please add at least one product or service.");
+      return false;
+    }
+    return true;
+  };
+
+  // --- DEBOUNCE EFFECT ---
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedDocument(document);
@@ -110,36 +111,29 @@ export default function EditorPage() {
     return () => clearTimeout(handler);
   }, [document]);
 
-  // --- PDF BLOB GENERATION EFFECT (Replaces PDFViewer) ---
+  // --- PDF GENERATION ---
   useEffect(() => {
     let isMounted = true;
     const generatePdfPreview = async () => {
-      if (!isDesktop) return; // Save resources on mobile
+      if (!isDesktop) return; 
       try {
         const currentLogoUrl = document.logo_url || profile.logo_url;
         const docData = { ...debouncedDocument, logo_url: currentLogoUrl };
-        
-        // Generate Blob manually
         const blob = await pdf(<InvoicePDF document={docData} />).toBlob();
         const url = URL.createObjectURL(blob);
-        
         if (isMounted) {
             setPdfUrl(prev => {
-                if (prev) URL.revokeObjectURL(prev); // Cleanup memory
+                if (prev) URL.revokeObjectURL(prev); 
                 return url;
             });
         }
-      } catch (err) {
-          console.error("Preview Generation Error:", err);
-      }
+      } catch (err) { console.error("Preview Error:", err); }
     };
-    
     generatePdfPreview();
     return () => { isMounted = false; };
   }, [debouncedDocument, profile.logo_url, isDesktop]);
 
-
-  // --- Check Screen Size ---
+  // --- Screen Size ---
   useEffect(() => {
     const checkScreen = () => setIsDesktop(window.innerWidth >= 1024);
     checkScreen();
@@ -176,7 +170,6 @@ export default function EditorPage() {
       const { data: docData } = await supabase.from('documents').select(`*, document_items(*)`).eq('id', documentId).single();
       if (docData) {
         const fullDoc = calculateTotals({ ...docData, items: docData.document_items.map(item => ({...item, id: item.id})) });
-        // Ensure currency is set, fallback to AED if older doc (or USD if preferred fallback logic)
         if (!fullDoc.currency) fullDoc.currency = 'AED';
         setDocument(fullDoc);
         setDebouncedDocument(fullDoc); 
@@ -186,6 +179,7 @@ export default function EditorPage() {
         initial.sender_name = fetchedProfile.business_name || '';
         initial.sender_address = fetchedProfile.address_line_1 || '';
         initial.sender_email = fetchedProfile.email || '';
+        initial.sender_phone = fetchedProfile.phone || '';
         initial.logo_url = fetchedProfile.logo_url;
         initial.document_number = `${initial.type === 'invoice' ? 'INV' : 'QT'}-${String(nextNumber).padStart(4, '0')}`;
         setDocument(calculateTotals(initial));
@@ -195,12 +189,176 @@ export default function EditorPage() {
   }, [documentId]);
   
   useEffect(() => { fetchInitialData(); }, [fetchInitialData]);
-  
-  // Recalculate totals on item change
   useEffect(() => { setDocument((prev) => calculateTotals(prev)); }, [document.items, document.type]);
 
+  // --- Handlers ---
+  const handleChange = (e) => setDocument(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  
+  const handleTypeChange = (e) => {
+    const newType = e.target.value;
+    setDocument(prev => {
+        const newDoc = { ...prev, type: newType, document_number: `${newType === 'invoice' ? 'INV' : 'QT'}-${String(nextNumberRef.current).padStart(4, '0')}` };
+        return calculateTotals(newDoc);
+    });
+  }
+
+  const handleItemChange = (id, field, value) => {
+    const newItems = document.items.map((item) => {
+      if (item.id === id) {
+        const updatedItem = { ...item, [field]: value };
+        if (['quantity', 'unit_price', 'tax_rate'].includes(field)) {
+             const q = parseFloat(updatedItem.quantity || 0);
+             const p = parseFloat(updatedItem.unit_price || 0);
+             const t = parseFloat(updatedItem.tax_rate || 0);
+             updatedItem.amount = (q * p) + ((q * p) * (t / 100));
+        }
+        return updatedItem;
+      }
+      return item;
+    });
+    setDocument(prev => ({ ...prev, items: newItems }));
+  };
+
+  const addItem = () => setDocument(prev => ({ ...prev, items: [...prev.items, { id: Date.now(), name: '', description: '', quantity: 1, unit_price: 0, tax_rate: 0, amount: 0 }] }));
+  
+  const removeItem = (id) => {
+      if (typeof window !== 'undefined' && !window.confirm("Remove this line item?")) return;
+      setDocument(prev => ({ ...prev, items: prev.items.filter(i => i.id !== id) }));
+  };
+
+  // --- Logo Handlers ---
+  const handleLogoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    try {
+        const storagePath = user ? user.id : 'guest_uploads';
+        const filePath = `${storagePath}/${Date.now()}_logo_${file.name}`;
+        
+        const { error: uploadError } = await supabase.storage.from('logos').upload(filePath, file, { upsert: true });
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage.from('logos').getPublicUrl(filePath);
+        const logoUrl = urlData.publicUrl;
+
+        if (user) {
+            await supabase.from('business_profiles').upsert({ id: user.id, logo_url: logoUrl }, { onConflict: 'id' });
+            setProfile(prev => ({ ...prev, logo_url: logoUrl }));
+        }
+
+        setDocument(prev => ({ ...prev, logo_url: logoUrl }));
+        
+    } catch (error) {
+        alert("Upload failed. Please check your network or image size.");
+        console.error(error);
+    } finally {
+        setIsUploading(false);
+    }
+  };
+
+  const removeLogo = () => {
+      setDocument(prev => ({ ...prev, logo_url: null }));
+  };
+
+  // --- Download PDF ---
+  const handleDownloadPdf = async (e) => {
+      e.preventDefault(); 
+      if (!validateDocument()) return; 
+      
+      setIsDownloading(true);
+      try {
+          const docData = { ...document, logo_url: document.logo_url || profile.logo_url };
+          const blob = await pdf(<InvoicePDF document={docData} />).toBlob();
+          const url = URL.createObjectURL(blob);
+          const link = window.document.createElement('a');
+          link.href = url;
+          link.download = `${document.document_number || 'document'}.pdf`;
+          window.document.body.appendChild(link);
+          link.click();
+          window.document.body.removeChild(link);
+      } catch (error) {
+          alert("Failed to generate PDF.");
+      } finally {
+          setIsDownloading(false);
+      }
+  };
+
+  // --- Save Logic ---
+  const handleSaveClick = async (e) => {
+      e.preventDefault(); 
+      if (!validateDocument()) return; 
+
+      if (!user) return router.push('/login');
+      setIsSaving(true);
+      finalizeSave(); 
+  };
+
+  const finalizeSave = async () => {
+    const docData = {
+      user_id: user.id,
+      document_number: document.document_number,
+      type: document.type,
+      currency: document.currency,
+      issue_date: document.issue_date,
+      due_date: document.due_date,
+      subtotal: document.subtotal,
+      tax_total: document.tax_total,
+      grand_total: document.grand_total,
+      client_name: document.client_name,
+      client_address: document.client_address,
+      client_email: document.client_email,
+      client_phone: document.client_phone, 
+      notes: document.notes,
+      sender_name: document.sender_name,
+      sender_address: document.sender_address,
+      sender_email: document.sender_email,
+      sender_phone: document.sender_phone, 
+      logo_url: document.logo_url || profile.logo_url,
+    };
+
+    let savedId = documentId;
+    let errorMsg = null;
+
+    if (documentId) {
+      const { error } = await supabase.from('documents').update(docData).eq('id', documentId);
+      if (error) errorMsg = error.message;
+      else {
+          await supabase.from('document_items').delete().eq('document_id', documentId);
+      }
+    } else {
+      const { data, error } = await supabase.from('documents').insert(docData).select().single();
+      if (error) errorMsg = error.message;
+      else if (data) {
+          savedId = data.id; 
+      } else {
+          errorMsg = "No data returned from insert. Check RLS policies.";
+      }
+    }
+
+    if (errorMsg) {
+        setIsSaving(false);
+        return alert(`Error saving document: ${errorMsg}`);
+    }
+
+    const itemsData = document.items.map(i => ({
+        document_id: savedId, 
+        name: i.name, 
+        description: i.description, 
+        quantity: i.quantity, 
+        unit_price: i.unit_price, 
+        tax_rate: i.tax_rate, 
+        amount: i.amount
+    }));
+    await supabase.from('document_items').insert(itemsData);
+    
+    setIsSaving(false);
+    if (!documentId) router.push(`/editor/${savedId}`);
+    else alert('Document saved successfully!');
+  };
+
   // --- Library Logic ---
-  const fetchLibraryData = async (type) => {
+  const fetchLibraryData = async (type) => { 
       const tableName = type === 'terms' ? 'saved_terms' : type;
       const { data } = await supabase.from(tableName).select('*').order('created_at', { ascending: false });
       setLibraryData(data || []);
@@ -262,16 +420,18 @@ export default function EditorPage() {
               ...prev,
               client_name: item.name,
               client_email: item.email,
+              client_phone: item.phone,
               client_address: item.address
           }));
       } else if (modalType === 'items') {
           const newItem = {
               id: Date.now(),
-              description: item.name + (item.description ? ` - ${item.description}` : ''),
+              name: item.name,
+              description: item.description,
               quantity: 1,
               unit_price: item.unit_price,
               tax_rate: item.tax_rate,
-              amount: 0 
+              amount: (item.unit_price * 1) + (item.unit_price * item.tax_rate / 100),
           };
           setDocument(prev => ({ ...prev, items: [...prev.items, newItem] }));
       } else if (modalType === 'terms') {
@@ -280,245 +440,43 @@ export default function EditorPage() {
       setModalOpen(false);
   };
 
-  // --- Handlers ---
-  const handleChange = (e) => setDocument(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  
-  const handleTypeChange = (e) => {
-    const newType = e.target.value;
-    setDocument(prev => {
-        const newDoc = { ...prev, type: newType, document_number: `${newType === 'invoice' ? 'INV' : 'QT'}-${String(nextNumberRef.current).padStart(4, '0')}` };
-        return calculateTotals(newDoc);
-    });
-  }
-
-  const handleItemChange = (id, field, value) => {
-    const newItems = document.items.map((item) => {
-      if (item.id === id) {
-        const updatedItem = { ...item, [field]: value };
-        if (['quantity', 'unit_price', 'tax_rate'].includes(field)) {
-             const q = parseFloat(updatedItem.quantity || 0);
-             const p = parseFloat(updatedItem.unit_price || 0);
-             const t = parseFloat(updatedItem.tax_rate || 0);
-             updatedItem.amount = (q * p) + ((q * p) * (t / 100));
-        }
-        return updatedItem;
-      }
-      return item;
-    });
-    setDocument(prev => ({ ...prev, items: newItems }));
-  };
-
-  const addItem = () => setDocument(prev => ({ ...prev, items: [...prev.items, { id: Date.now(), description: '', quantity: 1, unit_price: 0, tax_rate: 0, amount: 0 }] }));
-  
-  // SAFE REMOVE ITEM
-  const removeItem = (id) => {
-      if (typeof window !== 'undefined' && !window.confirm("Remove this line item?")) {
-          return;
-      }
-      setDocument(prev => ({ ...prev, items: prev.items.filter(i => i.id !== id) }));
-  };
-
-  // --- PDF Generation (On Demand) ---
-  const handleDownloadPdf = async () => {
-      setIsDownloading(true);
-      try {
-          const docData = {
-              ...document,
-              logo_url: document.logo_url || profile.logo_url
-          };
-          
-          const blob = await pdf(<InvoicePDF document={docData} />).toBlob();
-          const url = URL.createObjectURL(blob);
-          
-          const link = window.document.createElement('a');
-          link.href = url;
-          link.download = `${document.document_number || 'document'}.pdf`;
-          window.document.body.appendChild(link);
-          link.click();
-          window.document.body.removeChild(link);
-      } catch (error) {
-          console.error("PDF Gen Error:", error);
-          alert("Failed to generate PDF. Please try again.");
-      } finally {
-          setIsDownloading(false);
-      }
-  };
-
-  // --- Save Logic ---
-  const handleSaveClick = async () => {
-      if (!user) return router.push('/login');
-      setIsSaving(true);
-
-      let potentialNewClient = null;
-      let potentialNewItems = [];
-
-      if (document.client_name && document.client_name.length > 2) {
-          const { data: existingClients } = await supabase.from('clients').select('id').eq('name', document.client_name).limit(1);
-          if (!existingClients || existingClients.length === 0) {
-              potentialNewClient = {
-                  name: document.client_name,
-                  email: document.client_email,
-                  address: document.client_address
-              };
-          }
-      }
-
-      for (const item of document.items) {
-          if (item.description && item.description.length > 3) {
-             const namePart = item.description.split(' - ')[0]; 
-             const { data: existingItems } = await supabase.from('items').select('id').ilike('name', namePart).limit(1);
-             if (!existingItems || existingItems.length === 0) {
-                 potentialNewItems.push({
-                     name: namePart,
-                     description: item.description,
-                     unit_price: item.unit_price,
-                     tax_rate: item.tax_rate
-                 });
-             }
-          }
-      }
-
-      potentialNewItems = potentialNewItems.filter((v,i,a)=>a.findIndex(v2=>(v2.name===v.name))===i);
-
-      if (potentialNewClient || potentialNewItems.length > 0) {
-          setNewClientData(potentialNewClient);
-          setNewItemsData(potentialNewItems);
-          setModalType('save_prompt');
-          setModalOpen(true);
-          setIsSaving(false); 
-      } else {
-          finalizeSave();
-      }
-  };
-
-  const handleSmartSaveConfirm = async (saveClient, saveItems) => {
-      if (saveClient && newClientData) {
-          await supabase.from('clients').insert({ ...newClientData, user_id: user.id });
-      }
-      if (saveItems && newItemsData.length > 0) {
-          const itemsToSave = newItemsData.map(i => ({ ...i, user_id: user.id }));
-          await supabase.from('items').insert(itemsToSave);
-      }
-      setModalOpen(false);
-      setIsSaving(true);
-      finalizeSave();
-  };
-
-  const finalizeSave = async () => {
-    if (!user) {
-        setIsSaving(false);
-        return alert("User session lost. Please login again.");
-    }
-
-    const docData = {
-      user_id: user.id,
-      document_number: document.document_number,
-      type: document.type,
-      issue_date: document.issue_date,
-      due_date: document.due_date,
-      subtotal: document.subtotal,
-      tax_total: document.tax_total,
-      grand_total: document.grand_total,
-      client_name: document.client_name,
-      client_address: document.client_address,
-      client_email: document.client_email,
-      notes: document.notes,
-      sender_name: document.sender_name,
-      sender_address: document.sender_address,
-      sender_email: document.sender_email,
-      logo_url: document.logo_url || profile.logo_url,
-      currency: document.currency,
-    };
-
-    let savedId = documentId;
-    let errorMsg = null;
-
-    if (documentId) {
-      const { error } = await supabase.from('documents').update(docData).eq('id', documentId);
-      if (error) errorMsg = error.message;
-      else {
-          await supabase.from('document_items').delete().eq('document_id', documentId);
-      }
-    } else {
-      const { data, error } = await supabase.from('documents').insert(docData).select().single();
-      if (error) errorMsg = error.message;
-      else if (data) {
-          savedId = data.id; 
-      } else {
-          errorMsg = "No data returned from insert. Check RLS policies.";
-      }
-    }
-
-    if (errorMsg) {
-        setIsSaving(false);
-        return alert(`Error saving document: ${errorMsg}`);
-    }
-
-    const itemsData = document.items.map(i => ({
-        document_id: savedId, description: i.description, quantity: i.quantity, unit_price: i.unit_price, tax_rate: i.tax_rate, amount: i.amount
-    }));
-    await supabase.from('document_items').insert(itemsData);
-    
-    setIsSaving(false);
-    if (!documentId) router.push(`/editor/${savedId}`);
-    else alert('Document saved successfully!');
-  };
-
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50 text-slate-500">Loading workspace...</div>;
 
   const currentLogoUrl = document.logo_url || profile.logo_url;
-  
-  // Use debounced document for PDF to prevent crashes during typing/deleting
-  const documentForPDF = { 
-      ...debouncedDocument, 
-      logo_url: currentLogoUrl 
-  };
+  const documentForPDF = { ...debouncedDocument, logo_url: currentLogoUrl };
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans relative">
-      
-      {/* 1. Header */}
       <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 shrink-0 sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-4">
             <Link href="/dashboard" className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition"><ChevronLeft size={20} /></Link>
             <h1 className="font-bold text-lg hidden sm:block">{documentId ? 'Edit Document' : 'New Document'}</h1>
         </div>
         <div className="flex gap-2">
-            <button onClick={handleSaveClick} disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition shadow-md">
+            {/* The main save button is now type="submit" and is wrapped by the form */}
+            <button form="editor-form" type="submit" disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition shadow-md">
                 {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
                 <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save'}</span>
             </button>
         </div>
       </header>
 
-      {/* 3. Main Content */}
       <div className="flex flex-grow overflow-hidden">
-        
-        {/* LEFT PANEL: Editor (Always visible on mobile) */}
-        <div className="w-full lg:w-1/2 overflow-y-auto p-4 lg:p-8 space-y-6">
+        {/* WRAPPED ENTIRE EDITOR CONTENT IN A FORM TAG */}
+        {/* The native browser validation will now enforce required fields and input types */}
+        <form ref={editorFormRef} onSubmit={handleSaveClick} id="editor-form" className="w-full lg:w-1/2 overflow-y-auto p-4 lg:p-8 space-y-6">
             
-            {/* Document Info Card - Updated with Currency */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2">Document Info</h2>
                 <div className="grid grid-cols-2 gap-4">
-                    
-                    {/* NEW: Currency Selector */}
                     <div className="col-span-2">
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
                             <Globe size={12} /> Currency
                         </label>
-                        <select 
-                            name="currency" 
-                            value={document.currency} 
-                            onChange={handleChange} 
-                            className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium"
-                        >
-                            {CURRENCIES.map(c => (
-                                <option key={c.code} value={c.code}>{c.label}</option>
-                            ))}
+                        <select name="currency" value={document.currency} onChange={handleChange} className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium">
+                            {CURRENCIES.map(c => (<option key={c.code} value={c.code}>{c.label}</option>))}
                         </select>
                     </div>
-
                     <div className="col-span-2 sm:col-span-1">
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Type</label>
                         <select name="type" value={document.type} onChange={handleTypeChange} className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none text-sm">
@@ -541,22 +499,41 @@ export default function EditorPage() {
                 </div>
             </div>
 
-            {/* Parties */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
                      <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2">From (You)</h2>
-                     <input name="sender_name" placeholder="Business Name" value={document.sender_name} onChange={handleChange} className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
-                     <input name="sender_email" placeholder="Email" value={document.sender_email} onChange={handleChange} className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
-                     <textarea name="sender_address" placeholder="Address" value={document.sender_address} onChange={handleChange} rows={2} className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm resize-none" />
+                     
+                     <div className="flex items-center gap-4 mb-4">
+                         {currentLogoUrl ? (
+                             <div className="relative group w-20 h-12 border border-slate-200 rounded overflow-hidden bg-slate-50">
+                                 <img src={currentLogoUrl} alt="Logo" className="object-contain w-full h-full p-1" />
+                                 <button onClick={removeLogo} type="button" className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X size={16} /></button>
+                             </div>
+                         ) : (
+                             <label className={`w-20 h-12 flex items-center justify-center rounded border-2 border-dashed ${isUploading ? 'border-blue-400 text-blue-500' : 'border-slate-300 text-slate-400'} cursor-pointer hover:border-blue-500 hover:text-blue-500 transition`}>
+                                 {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                                 <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" disabled={isUploading} />
+                             </label>
+                         )}
+                         <span className="text-xs text-slate-400">
+                             {currentLogoUrl ? 'Logo Set' : 'Upload Logo'}
+                         </span>
+                     </div>
+
+                     <input type="text" name="sender_name" placeholder="Business Name" value={document.sender_name} onChange={handleChange} required className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
+                     <input type="email" name="sender_email" placeholder="Email" value={document.sender_email} onChange={handleChange} className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
+                     <input type="tel" name="sender_phone" placeholder="Phone" value={document.sender_phone} onChange={handleChange} pattern="[0-9+() -]{7,20}" className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
+                     <textarea name="sender_address" placeholder="Address" value={document.sender_address} onChange={handleChange} rows={2} required className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm resize-none" />
                 </div>
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
                      <div className="flex justify-between items-center mb-2">
                         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Bill To</h2>
-                        {user && <button onClick={() => openLibrary('clients')} className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"><Users size={12}/> Select Saved</button>}
+                        {user && <button onClick={() => openLibrary('clients')} type="button" className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"><Users size={12}/> Select Saved</button>}
                      </div>
-                     <input name="client_name" placeholder="Client Name" value={document.client_name} onChange={handleChange} className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
-                     <input name="client_email" placeholder="Client Email" value={document.client_email} onChange={handleChange} className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
-                     <textarea name="client_address" placeholder="Client Address" value={document.client_address} onChange={handleChange} rows={2} className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm resize-none" />
+                     <input type="text" name="client_name" placeholder="Client Name" value={document.client_name} onChange={handleChange} required className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
+                     <input type="email" name="client_email" placeholder="Client Email" value={document.client_email} onChange={handleChange} className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
+                     <input type="tel" name="client_phone" placeholder="Client Phone" value={document.client_phone} onChange={handleChange} pattern="[0-9+() -]{7,20}" className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
+                     <textarea name="client_address" placeholder="Client Address" value={document.client_address} onChange={handleChange} rows={2} required className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm resize-none" />
                 </div>
             </div>
 
@@ -564,113 +541,222 @@ export default function EditorPage() {
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
                 <div className="flex justify-between items-center">
                     <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Line Items</h2>
-                    {user && <button onClick={() => openLibrary('items')} className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"><Package size={12}/> Add Saved Item</button>}
+                    {user && <button onClick={() => openLibrary('items')} type="button" className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"><Package size={12}/> Add Saved Item</button>}
                 </div>
                 <div className="space-y-4">
                     {document.items.map((item) => (
                         <div key={item.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm transition hover:border-slate-300">
-                             
-                             <div className="mb-3">
-                                <input 
-                                    name="description" 
-                                    placeholder="Enter your product or service" 
-                                    value={item.description} 
-                                    onChange={(e) => handleItemChange(item.id, 'description', e.target.value)} 
-                                    className="w-full bg-transparent border-b border-slate-200 focus:border-blue-500 outline-none text-sm font-medium placeholder:text-slate-400" 
-                                />
+                             <div className="mb-3 space-y-2">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase">Product / Service</label>
+                                <input name="name" placeholder="Product Name (Required)" value={item.name} onChange={(e) => handleItemChange(item.id, 'name', e.target.value)} required className="w-full bg-white p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 shadow-sm" />
+                                <input name="description" placeholder="Description (Optional)" value={item.description} onChange={(e) => handleItemChange(item.id, 'description', e.target.value)} className="w-full bg-white p-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400" />
                              </div>
-
                              <div className="grid grid-cols-3 gap-3 mb-4">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Qty</label>
-                                    <input type="number" name="quantity" value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)} className="w-full bg-white p-2 border border-slate-200 rounded-lg text-sm text-center" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Price</label>
-                                    <input type="number" name="unit_price" value={item.unit_price} onChange={(e) => handleItemChange(item.id, 'unit_price', e.target.value)} className="w-full bg-white p-2 border border-slate-200 rounded-lg text-sm text-center" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tax %</label>
-                                    <input type="number" name="tax_rate" value={item.tax_rate} onChange={(e) => handleItemChange(item.id, 'tax_rate', e.target.value)} className="w-full bg-white p-2 border border-slate-200 rounded-lg text-sm text-center" />
-                                </div>
+                                <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Qty</label><input type="number" name="quantity" min="1" value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)} required className="w-full bg-white p-2 border border-slate-200 rounded-lg text-sm text-center" /></div>
+                                <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Price</label><input type="number" name="unit_price" min="0" step="0.01" value={item.unit_price} onChange={(e) => handleItemChange(item.id, 'unit_price', e.target.value)} required className="w-full bg-white p-2 border border-slate-200 rounded-lg text-sm text-center" /></div>
+                                <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tax %</label><input type="number" name="tax_rate" min="0" step="0.01" value={item.tax_rate} onChange={(e) => handleItemChange(item.id, 'tax_rate', e.target.value)} className="w-full bg-white p-2 border border-slate-200 rounded-lg text-sm text-center" /></div>
                              </div>
-
                              <div className="flex justify-between items-center pt-3 border-t border-slate-200">
-                                <div className="text-sm">
-                                    <span className="text-slate-400 text-xs font-bold uppercase mr-2">Total:</span>
-                                    <span className="font-bold text-slate-900 text-base">{formatCurrency(item.amount, document.currency)}</span>
-                                </div>
-                                <button type="button" onClick={() => removeItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition">
-                                    <Trash2 size={18} />
-                                </button>
+                                <div className="text-sm"><span className="text-slate-400 text-xs font-bold uppercase mr-2">Total:</span><span className="font-bold text-slate-900 text-base">{formatCurrency(item.amount, document.currency)}</span></div>
+                                <button type="button" onClick={() => removeItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"><Trash2 size={18} /></button>
                              </div>
                         </div>
                     ))}
                 </div>
-                <button onClick={addItem} className="flex items-center gap-2 text-blue-600 text-sm font-bold hover:underline mt-2"><Plus size={16} /> Add Line Item</button>
+                <button onClick={addItem} type="button" className="flex items-center gap-2 text-blue-600 text-sm font-bold hover:underline mt-2"><Plus size={16} /> Add Line Item</button>
             </div>
 
-            {/* Notes */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex justify-between items-center mb-2">
                     <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Terms & Notes</h2>
-                    {user && <button onClick={() => openLibrary('terms')} className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"><FileText size={12}/> Insert Saved Terms</button>}
+                    {user && <button onClick={() => openLibrary('terms')} type="button" className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"><FileText size={12}/> Insert Saved Terms</button>}
                 </div>
                 <textarea name="notes" value={document.notes} onChange={handleChange} rows={3} className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none" />
             </div>
 
-            {/* NEW: Mobile Download Button (Visible only on LG screens and below) */}
             <div className="lg:hidden mt-6 pt-4 border-t border-slate-200 pb-8 flex flex-col items-center">
-                 <button 
-                    onClick={handleDownloadPdf}
-                    disabled={isDownloading}
-                    className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-md active:scale-95 transition"
-                 >
-                    <Download size={18} /> 
-                    {isDownloading ? 'Preparing...' : 'Download PDF'}
+                 <button onClick={handleDownloadPdf} disabled={isDownloading} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold text-sm shadow-md active:scale-95 transition">
+                    <Download size={18} /> {isDownloading ? 'Preparing...' : 'Download PDF'}
                  </button>
             </div>
+        </form>
 
-        </div>
-
-        {/* RIGHT PANEL: Live Preview (Hidden on Mobile) */}
+        {/* RIGHT PANEL */}
         <div className="hidden lg:flex w-full lg:w-1/2 bg-slate-100 overflow-y-auto flex-col items-center p-8 lg:p-12">
             <div className="w-full max-w-md mb-6 flex justify-between items-center">
                  <h2 className="text-slate-500 font-bold uppercase text-sm tracking-wider">Live Preview</h2>
                  {isDesktop && (
-                    <button 
-                        onClick={handleDownloadPdf}
-                        disabled={isDownloading}
-                        className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:underline"
-                    >
+                    <button onClick={handleDownloadPdf} disabled={isDownloading} className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:underline">
                         <Download size={16} /> {isDownloading ? 'Preparing...' : 'Download PDF'}
                     </button>
                  )}
             </div>
             {isDesktop && (
                 <div className="bg-white w-full max-w-[210mm] aspect-[1/1.414] shadow-2xl rounded-sm overflow-hidden border border-slate-200 transition-transform duration-300">
-                     {/* Replaced PDFViewer with secure Iframe */}
-                     {pdfUrl ? (
-                         <iframe 
-                            src={`${pdfUrl}#toolbar=0&view=FitH`} 
-                            className="w-full h-full border-none" 
-                            title="PDF Preview"
-                         />
-                     ) : (
-                         <div className="flex items-center justify-center h-full text-slate-400 animate-pulse">Generating Preview...</div>
-                     )}
+                     <iframe 
+                        src={pdfUrl ? `${pdfUrl}#toolbar=0&view=FitH` : undefined} 
+                        className="w-full h-full border-none" 
+                        title="PDF Preview"
+                     />
+                     {!pdfUrl && <div className="absolute inset-0 flex items-center justify-center text-slate-400">Generating Preview...</div>}
                 </div>
             )}
         </div>
       </div>
       
-      {/* Modal code kept as is (no changes needed) */}
-      {/* ... keeping modal logic ... */}
-      {modalOpen && <LibraryManager initialTab={modalType} onClose={() => setModalOpen(false)} />}
+      {/* MODALS */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+                
+                {/* SELECT/MANAGE FROM LIBRARY MODE */}
+                {modalType !== 'save_prompt' && (
+                    <>
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-slate-800 capitalize">
+                                    {libraryView === 'form' ? (libraryEditingId ? 'Edit ' : 'Add New ') : 'Select '} 
+                                    {modalType === 'items' ? 'Product' : modalType === 'terms' ? 'Terms' : modalType.slice(0, -1)}
+                                </h3>
+                            </div>
+                            <div className="flex gap-2">
+                                {libraryView === 'list' && (
+                                    <button onClick={() => { setLibraryForm({}); setLibraryEditingId(null); setLibraryView('form'); }} className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 font-bold flex items-center gap-1">
+                                        <Plus size={12} /> New
+                                    </button>
+                                )}
+                                <button onClick={() => setModalOpen(false)}><X size={20} className="text-slate-400 hover:text-slate-600" /></button>
+                            </div>
+                        </div>
+
+                        <div className="p-4 overflow-y-auto space-y-2 flex-grow">
+                            {libraryView === 'list' ? (
+                                libraryData.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <p className="text-slate-400 text-sm mb-2">No items found.</p>
+                                        <button onClick={() => { setLibraryForm({}); setLibraryView('form'); }} className="text-blue-600 font-bold text-xs hover:underline">Create One</button>
+                                    </div>
+                                ) : (
+                                    libraryData.map(item => (
+                                        <div key={item.id} onClick={() => handleSelectFromLibrary(item)} className="p-3 border border-slate-100 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition flex justify-between items-center group">
+                                            <div className="flex-grow">
+                                                <div className="font-bold text-slate-800 text-sm">{item.name || item.label}</div>
+                                                <div className="text-xs text-slate-500 truncate w-48">{item.email || item.description || item.content}</div>
+                                                {item.unit_price && <div className="text-xs font-bold text-blue-600 mt-1">${item.unit_price}</div>}
+                                            </div>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => handleLibraryEdit(item, e)} className="p-1.5 text-blue-500 hover:bg-blue-100 rounded"><Edit2 size={14}/></button>
+                                                <button onClick={(e) => handleLibraryDelete(item.id, e)} className="p-1.5 text-red-500 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )
+                            ) : (
+                                // FORM VIEW
+                                <form onSubmit={handleLibrarySave} className="space-y-3">
+                                    {modalType === 'clients' && (
+                                        <>
+                                            <Input label="Name / Company" value={libraryForm.name} onChange={e => setLibraryForm({...libraryForm, name: e.target.value})} required />
+                                            <Input label="Email" type="email" value={libraryForm.email} onChange={e => setLibraryForm({...libraryForm, email: e.target.value})} />
+                                            <Input label="Phone" type="tel" value={libraryForm.phone} onChange={e => setLibraryForm({...libraryForm, phone: e.target.value})} />
+                                            <TextArea label="Address" value={libraryForm.address} onChange={e => setLibraryForm({...libraryForm, address: e.target.value})} />
+                                        </>
+                                    )}
+                                    {modalType === 'items' && (
+                                        <>
+                                            <Input label="Name" value={libraryForm.name} onChange={e => setLibraryForm({...libraryForm, name: e.target.value})} required />
+                                            <TextArea label="Description" value={libraryForm.description} onChange={e => setLibraryForm({...libraryForm, description: e.target.value})} />
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <Input label="Price" type="number" min="0" step="0.01" value={libraryForm.unit_price} onChange={e => setLibraryForm({...libraryForm, unit_price: e.target.value})} />
+                                                <Input label="Tax %" type="number" min="0" step="0.01" value={libraryForm.tax_rate} onChange={e => setLibraryForm({...libraryForm, tax_rate: e.target.value})} />
+                                            </div>
+                                        </>
+                                    )}
+                                    {modalType === 'terms' && (
+                                        <>
+                                            <Input label="Label (e.g. Standard)" value={libraryForm.label} onChange={e => setLibraryForm({...libraryForm, label: e.target.value})} required />
+                                            <TextArea label="Content" rows={5} value={libraryForm.content} onChange={e => setLibraryForm({...libraryForm, content: e.target.value})} />
+                                        </>
+                                    )}
+                                    <div className="flex gap-2 pt-2">
+                                        <button type="button" onClick={() => setLibraryView('list')} className="flex-1 py-2 text-slate-500 hover:bg-slate-100 rounded text-sm font-bold">Cancel</button>
+                                        <button type="submit" className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-bold">Save</button>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
+                    </>
+                )}
+
+                {/* SAVE PROMPT MODE */}
+                {modalType === 'save_prompt' && (
+                    <SavePrompt 
+                        newClient={newClientData} 
+                        newItems={newItemsData}
+                        onConfirm={handleSmartSaveConfirm}
+                        onCancel={() => { setModalOpen(false); finalizeSave(); }} 
+                    />
+                )}
+            </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
-// ... Sub-components remain the same ...
-// Including a dummy LibraryManager for compilation context if needed, but in real file usage, keep the existing one.
-function LibraryManager({ initialTab, onClose }) { return <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"><div className="bg-white p-4 rounded">Modal Content</div></div>; }
+// Reusable Inputs for Modal
+function Input({ label, value, onChange, type='text', placeholder, required }) {
+    return (
+        <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{label}</label>
+            <input type={type} value={value || ''} onChange={onChange} placeholder={placeholder} required={required} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition text-sm" />
+        </div>
+    );
+}
+
+function TextArea({ label, value, onChange, rows=2, placeholder }) {
+    return (
+        <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{label}</label>
+            <textarea value={value || ''} onChange={onChange} rows={rows} placeholder={placeholder} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition resize-none text-sm" />
+        </div>
+    );
+}
+
+function SavePrompt({ newClient, newItems, onConfirm, onCancel }) {
+    const [saveClient, setSaveClient] = useState(!!newClient);
+    const [saveItems, setSaveItems] = useState(!!newItems.length);
+
+    return (
+        <div className="p-6">
+            <h3 className="text-lg font-bold text-slate-800 mb-2">New Data Detected</h3>
+            <p className="text-sm text-slate-500 mb-6">Would you like to save these new details to your library?</p>
+            
+            <div className="space-y-3 mb-6">
+                {newClient && (
+                    <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                        <input type="checkbox" checked={saveClient} onChange={e => setSaveClient(e.target.checked)} className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500" />
+                        <div>
+                            <div className="font-bold text-sm text-slate-800">Save Client: {newClient.name}</div>
+                        </div>
+                    </label>
+                )}
+                {newItems.length > 0 && (
+                    <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                        <input type="checkbox" checked={saveItems} onChange={e => setSaveItems(e.target.checked)} className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500" />
+                        <div>
+                            <div className="font-bold text-sm text-slate-800">Save {newItems.length} New Item{newItems.length > 1 ? 's' : ''}</div>
+                            <div className="text-xs text-slate-500">{newItems.map(i => i.name).join(', ')}</div>
+                        </div>
+                    </label>
+                )}
+            </div>
+
+            <div className="flex gap-3">
+                <button onClick={onCancel} className="flex-1 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg transition">No, Skip</button>
+                <button onClick={() => onConfirm(saveClient, saveItems)} className="flex-1 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition">Yes, Save & Continue</button>
+            </div>
+        </div>
+    );
+}

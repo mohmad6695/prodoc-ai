@@ -3,8 +3,8 @@ import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/render
 
 // --- THEME CONFIGURATION ---
 const THEME = {
-  primary: '#1e293b',    // Slate-800 (Dark Corporate Blue/Grey)
-  accent: '#3b82f6',     // Blue-500 (Highlight)
+  primary: '#1e293b',    // Slate-800
+  accent: '#3b82f6',     // Blue-500
   textMain: '#334155',   // Slate-700
   textMuted: '#64748b',  // Slate-500
   border: '#e2e8f0',     // Slate-200
@@ -19,16 +19,14 @@ const styles = StyleSheet.create({
     lineHeight: 1.5,
     color: THEME.textMain,
     backgroundColor: THEME.white,
-    padding: 0, // We handle padding in container to allow full-width headers if needed
+    padding: 0, 
   },
-  
-  // --- LAYOUT CONTAINERS ---
   container: {
     padding: 40,
     flex: 1,
   },
   
-  // --- HEADER SECTION ---
+  // --- HEADER ---
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -46,7 +44,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   
-  // Logo & Branding
   logoImage: {
     width: 120,
     height: 50,
@@ -62,7 +59,6 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   
-  // Sender Details
   senderAddressBox: {
     marginTop: 5,
   },
@@ -70,6 +66,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: THEME.textMuted,
     lineHeight: 1.4,
+    fontWeight: 'bold', 
   },
 
   // Document Title & Meta
@@ -83,7 +80,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   docTitle: {
-    fontSize: 22, // Adjusted for better hierarchy
+    fontSize: 22,
     fontWeight: 'heavy',
     color: THEME.primary,
     textTransform: 'uppercase',
@@ -289,7 +286,6 @@ const InvoicePDF = ({ document }) => (
         
         {/* HEADER */}
         <View style={styles.header}>
-          {/* Left: Branding & Sender */}
           <View style={styles.headerLeft}>
             {document.logo_url ? (
               <Image src={document.logo_url} style={styles.logoImage} />
@@ -299,11 +295,12 @@ const InvoicePDF = ({ document }) => (
             <View style={styles.senderAddressBox}>
                 <Text style={styles.senderText}>{document.sender_name}</Text>
                 <Text style={styles.senderText}>{document.sender_email}</Text>
+                {/* NEW: Sender Phone */}
+                {document.sender_phone && <Text style={styles.senderText}>{document.sender_phone}</Text>}
                 <Text style={styles.senderText}>{document.sender_address}</Text>
             </View>
           </View>
 
-          {/* Right: Document Info */}
           <View style={styles.headerRight}>
             <View style={styles.titleBox}>
               <Text style={styles.docTitle}>{document.type || 'INVOICE'}</Text>
@@ -331,9 +328,10 @@ const InvoicePDF = ({ document }) => (
             <Text style={styles.sectionLabel}>Bill To</Text>
             <Text style={styles.clientName}>{document.client_name}</Text>
             <Text style={styles.clientDetails}>{document.client_email}</Text>
+            {/* NEW: Client Phone */}
+            {document.client_phone && <Text style={styles.clientDetails}>{document.client_phone}</Text>}
             <Text style={styles.clientDetails}>{document.client_address}</Text>
           </View>
-          {/* You can add a 'Ship To' column here in Phase 2 */}
         </View>
 
         {/* ITEMS TABLE */}
@@ -348,7 +346,10 @@ const InvoicePDF = ({ document }) => (
           
           {document.items && document.items.map((item, index) => (
             <View key={index} style={[styles.tableRow, { backgroundColor: index % 2 !== 0 ? THEME.bgLight : THEME.white }]}>
-              <Text style={[styles.td, styles.colDesc]}>{item.description}</Text>
+              <View style={styles.colDesc}>
+                 <Text style={[styles.td, { fontWeight: 'bold' }]}>{item.name}</Text>
+                 {item.description ? <Text style={{ fontSize: 8, color: THEME.textMuted, marginTop: 2 }}>{item.description}</Text> : null}
+              </View>
               <Text style={[styles.td, styles.colQty]}>{item.quantity}</Text>
               <Text style={[styles.td, styles.colPrice]}>{formatCurrency(item.unit_price, document.currency)}</Text>
               <Text style={[styles.td, styles.colTax]}>{item.tax_rate}%</Text>
