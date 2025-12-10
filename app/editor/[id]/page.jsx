@@ -6,7 +6,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import dynamic from 'next/dynamic';
 import { pdf } from '@react-pdf/renderer'; 
 import InvoicePDF from '../../../components/InvoicePDF';
-import { ChevronLeft, Save, Download, Plus, Trash2, Upload, X, Loader2, Users, Package, FileText, Edit2, Eye, Globe, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Save, Download, Plus, Trash2, Upload, X, Loader2, Users, Package, FileText, Edit2, Eye, Globe, AlertCircle, Banknote } from 'lucide-react';
 import Link from 'next/link';
 
 // Dynamically import PDFViewer to avoid SSR issues and heavy loading on mobile
@@ -42,6 +42,8 @@ const initialDocumentState = {
   sender_address: '',
   sender_email: '',
   sender_phone: '',
+  sender_tax_id: '',
+  payment_details: '',
   logo_url: null,
   items: [
     { id: 1, name: '', description: '', quantity: 1, unit_price: 0, tax_rate: 0, amount: 0 },
@@ -180,6 +182,8 @@ export default function EditorPage() {
         initial.sender_address = fetchedProfile.address_line_1 || '';
         initial.sender_email = fetchedProfile.email || '';
         initial.sender_phone = fetchedProfile.phone || '';
+        initial.sender_tax_id = fetchedProfile.tax_id || '';
+        initial.payment_details = fetchedProfile.bank_account_no || '';
         initial.logo_url = fetchedProfile.logo_url;
         initial.document_number = `${initial.type === 'invoice' ? 'INV' : 'QT'}-${String(nextNumber).padStart(4, '0')}`;
         setDocument(calculateTotals(initial));
@@ -314,6 +318,8 @@ export default function EditorPage() {
       sender_address: document.sender_address,
       sender_email: document.sender_email,
       sender_phone: document.sender_phone, 
+      sender_tax_id: document.sender_tax_id, 
+      payment_details: document.payment_details,
       logo_url: document.logo_url || profile.logo_url,
     };
 
@@ -353,8 +359,8 @@ export default function EditorPage() {
     await supabase.from('document_items').insert(itemsData);
     
     setIsSaving(false);
-    if (!documentId) router.push(`/editor/${savedId}`);
-    else alert('Document saved successfully!');
+    // Updated Redirect Logic: Send user to Dashboard on success
+    router.push('/dashboard'); 
   };
 
   // --- Library Logic ---
@@ -524,6 +530,13 @@ export default function EditorPage() {
                      <input type="email" name="sender_email" placeholder="Email" value={document.sender_email} onChange={handleChange} className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
                      <input type="tel" name="sender_phone" placeholder="Phone" value={document.sender_phone} onChange={handleChange} pattern="[0-9+() -]{7,20}" className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm" />
                      <textarea name="sender_address" placeholder="Address" value={document.sender_address} onChange={handleChange} rows={2} required className="w-full p-2 border-b border-slate-100 focus:border-blue-500 outline-none text-sm resize-none" />
+                     
+                     {/* Tax ID Only - Bank Details Moved */}
+                     <div className="pt-2 border-t border-slate-100 mt-2">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tax ID / TRN</label>
+                        <input name="sender_tax_id" placeholder="TRN / VAT Number" value={document.sender_tax_id || ''} onChange={handleChange} className="w-full p-2 border border-slate-100 bg-slate-50 rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none" />
+                     </div>
+
                 </div>
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
                      <div className="flex justify-between items-center mb-2">
@@ -566,12 +579,19 @@ export default function EditorPage() {
                 <button onClick={addItem} type="button" className="flex items-center gap-2 text-blue-600 text-sm font-bold hover:underline mt-2"><Plus size={16} /> Add Line Item</button>
             </div>
 
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Terms & Notes</h2>
-                    {user && <button onClick={() => openLibrary('terms')} type="button" className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"><FileText size={12}/> Insert Saved Terms</button>}
+            {/* Split Bottom: Bank Details (Left) + Notes (Right) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                     <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2"><Banknote size={14} /> Payment Details</h2>
+                     <textarea name="payment_details" placeholder="Bank Name, Account Number, IBAN, SWIFT..." value={document.payment_details || ''} onChange={handleChange} rows={5} className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none" />
                 </div>
-                <textarea name="notes" value={document.notes} onChange={handleChange} rows={3} className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none" />
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex justify-between items-center mb-2">
+                        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Terms & Notes</h2>
+                        {user && <button onClick={() => openLibrary('terms')} type="button" className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"><FileText size={12}/> Insert Saved Terms</button>}
+                    </div>
+                    <textarea name="notes" value={document.notes} onChange={handleChange} rows={5} className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none" />
+                </div>
             </div>
 
             <div className="lg:hidden mt-6 pt-4 border-t border-slate-200 pb-8 flex flex-col items-center">
@@ -675,7 +695,7 @@ export default function EditorPage() {
                                     {modalType === 'terms' && (
                                         <>
                                             <Input label="Label (e.g. Standard)" value={libraryForm.label} onChange={e => setLibraryForm({...libraryForm, label: e.target.value})} required />
-                                            <TextArea label="Content" rows={5} value={libraryForm.content} onChange={e => setLibraryForm({...libraryForm, content: e.target.value})} />
+                                            <TextArea label="Content" rows={5} value={libraryForm.content} onChange={e => setFormData({...formData, content: e.target.value})} />
                                         </>
                                     )}
                                     <div className="flex gap-2 pt-2">

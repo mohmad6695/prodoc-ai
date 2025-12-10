@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, FileText, Search, Trash2, Edit3, DollarSign, Users, ArrowRight, Package, BookOpen, X, Edit2, Save, Eye, Download, Loader2, Settings } from 'lucide-react';
+import { Plus, FileText, Search, Trash2, Edit3, DollarSign, Users, ArrowRight, Package, BookOpen, X, Edit2, Save, Eye, Download, Loader2, Settings, ChevronDown, Filter } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import InvoicePDF from '../../components/InvoicePDF';
 
@@ -13,7 +13,12 @@ export default function Dashboard() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, count: 0, clients: 0 });
+  
+  // Filtering States
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); 
+  const [typeFilter, setTypeFilter] = useState('all'); // NEW: Filter by Invoice or Quotation
+
   const [updatingId, setUpdatingId] = useState(null);
   const [generatingPdfId, setGeneratingPdfId] = useState(null);
   
@@ -110,13 +115,27 @@ export default function Dashboard() {
       }
   };
 
+  // Filtering Logic
   const filteredDocuments = documents.filter(doc => {
     const query = searchQuery.toLowerCase();
+    
+    // 1. Status Filter
+    if (statusFilter !== 'all' && doc.status !== statusFilter) return false;
+
+    // 2. Type Filter (Invoice vs Quotation)
+    if (typeFilter !== 'all' && doc.type !== typeFilter) return false;
+
+    // 3. Search Query (Client, Ref, or Amount)
+    if (!query) return true;
+    
+    // Format dates for search
+    const createdDate = new Date(doc.created_at).toLocaleDateString().toLowerCase();
+    
     return (
       doc.client_name?.toLowerCase().includes(query) ||
       doc.document_number?.toLowerCase().includes(query) ||
       String(doc.grand_total).includes(query) ||
-      doc.status?.toLowerCase().includes(query)
+      createdDate.includes(query)
     );
   });
 
@@ -166,17 +185,55 @@ export default function Dashboard() {
 
         {/* Documents Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="p-6 border-b border-slate-100 flex flex-col xl:flex-row justify-between items-center gap-4">
              <h2 className="font-bold text-slate-800 text-lg">Recent Documents</h2>
-             <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                <input 
-                    type="text" 
-                    placeholder="Search..." 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" 
-                />
+             
+             <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+                 
+                 {/* 1. Status Filter */}
+                 <div className="relative">
+                    <select 
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="appearance-none pl-10 pr-8 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer font-medium text-slate-600 min-w-[140px]"
+                    >
+                        <option value="all">All Status</option>
+                        <option value="draft">Draft</option>
+                        <option value="sent">Sent</option>
+                        <option value="paid">Paid</option>
+                        <option value="overdue">Overdue</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="declined">Declined</option>
+                    </select>
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                 </div>
+
+                 {/* 2. Document Type Filter (Invoice / Quotation) */}
+                 <div className="relative">
+                    <select 
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value)}
+                        className="appearance-none pl-3 pr-8 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer font-medium text-slate-600 min-w-[140px]"
+                    >
+                        <option value="all">All Types</option>
+                        <option value="invoice">Invoices</option>
+                        <option value="quotation">Quotations</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                 </div>
+
+                 {/* 3. Text Search */}
+                 <div className="relative flex-grow sm:flex-grow-0 sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input 
+                        type="text" 
+                        placeholder="Search client, ref..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" 
+                    />
+                 </div>
              </div>
           </div>
           
@@ -186,6 +243,8 @@ export default function Dashboard() {
                 <tr>
                   <th className="px-6 py-4">Created</th>
                   <th className="px-6 py-4">Reference</th>
+                  <th className="px-6 py-4">Issue Date</th>
+                  <th className="px-6 py-4">Due / Valid</th>
                   <th className="px-6 py-4">Client</th>
                   <th className="px-6 py-4">Amount</th>
                   <th className="px-6 py-4 text-center">Status</th>
@@ -194,38 +253,61 @@ export default function Dashboard() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredDocuments.length === 0 ? (
-                    <tr><td colSpan="6" className="px-6 py-12 text-center text-slate-400">
-                        {searchQuery ? 'No documents match your search.' : 'No documents found. Create your first one!'}
+                    <tr><td colSpan="8" className="px-6 py-12 text-center text-slate-400">
+                        {searchQuery || statusFilter !== 'all' || typeFilter !== 'all' ? 'No documents match your filters.' : 'No documents found. Create your first one!'}
                     </td></tr>
                 ) : (
                     filteredDocuments.map((doc) => (
                     <tr key={doc.id} className="hover:bg-slate-50 transition duration-150 group">
-                        <td className="px-6 py-4 text-sm text-slate-500 w-32">{new Date(doc.created_at).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                            {new Date(doc.created_at).toLocaleDateString()}
+                        </td>
                         <td className="px-6 py-4">
                             <div className="flex flex-col">
                                 <span className="font-semibold text-slate-700">{doc.document_number}</span>
                                 <span className="text-[10px] uppercase font-bold text-slate-400">{doc.type}</span>
                             </div>
                         </td>
-                        <td className="px-6 py-4 text-slate-600 max-w-[200px] truncate">{doc.client_name || '—'}</td>
+                        <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                            {doc.issue_date || '-'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                            {doc.due_date || '-'}
+                        </td>
+                        <td className="px-6 py-4 text-slate-600 max-w-[180px] truncate" title={doc.client_name}>
+                            {doc.client_name || '—'}
+                        </td>
                         <td className="px-6 py-4 font-bold text-slate-900">{formatCurrency(doc.grand_total)}</td>
-                        <td className="px-6 py-4 text-center w-40">
-                            <div className="relative inline-block">
+                        
+                        <td className="px-6 py-4 text-center w-36">
+                            <div className="relative inline-block w-full">
                                 <select 
                                     value={doc.status || 'draft'} 
                                     onChange={(e) => handleStatusChange(doc.id, e.target.value)}
                                     disabled={updatingId === doc.id}
-                                    className={`appearance-none cursor-pointer text-xs font-bold uppercase px-3 py-1.5 rounded-full border-0 focus:ring-2 focus:ring-offset-1 focus:ring-blue-200 transition-all text-center ${updatingId === doc.id ? 'opacity-50' : ''} ${getStatusColor(doc.status)}`}
+                                    className={`w-full appearance-none cursor-pointer text-xs font-bold uppercase px-3 py-1.5 pr-6 rounded-full border-0 focus:ring-2 focus:ring-offset-1 focus:ring-blue-200 transition-all text-center
+                                        ${updatingId === doc.id ? 'opacity-50' : ''}
+                                        ${getStatusColor(doc.status)}
+                                    `}
                                 >
                                     <option value="draft">Draft</option>
                                     <option value="sent">Sent</option>
                                     <option value="paid">Paid</option>
                                     <option value="overdue">Overdue</option>
+                                    <option value="accepted">Accepted</option>
+                                    <option value="declined">Declined</option>
                                 </select>
-                                {updatingId === doc.id && <div className="absolute inset-0 flex items-center justify-center"><div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></div></div>}
+                                <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
+                                
+                                {updatingId === doc.id && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-white/50 rounded-full">
+                                        <div className="w-3 h-3 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></div>
+                                    </div>
+                                )}
                             </div>
                         </td>
-                        <td className="px-6 py-4 text-right w-40">
+
+                        <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-1">
                                 <button 
                                     onClick={() => handlePdfAction(doc, 'preview')} 
@@ -272,8 +354,8 @@ export default function Dashboard() {
   );
 }
 
-// --- SUB-COMPONENTS ---
-
+// ... (Sub-components remain unchanged)
+// Re-declaring for compilation context
 function LibraryManager({ initialTab, onClose }) {
     const [tab, setTab] = useState(initialTab);
     const [items, setItems] = useState([]);
@@ -297,33 +379,21 @@ function LibraryManager({ initialTab, onClose }) {
     const handleSave = async (e) => {
         e.preventDefault();
         
-        // --- VALIDATION LOGIC ---
+        // Validation for Library
         if (tab === 'clients') {
             if (formData.email) {
-                // Basic email regex
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(formData.email)) {
-                    return alert("Please enter a valid email address.");
-                }
+                if (!emailRegex.test(formData.email)) return alert("Invalid email.");
             }
             if (formData.phone) {
-                // Allows digits, +, -, space, (), ., and requires at least 7 chars
                 const phoneRegex = /^[\d\+\-\s\(\).]{7,}$/;
-                if (!phoneRegex.test(formData.phone)) {
-                    return alert("Please enter a valid phone number.");
-                }
+                if (!phoneRegex.test(formData.phone)) return alert("Invalid phone number.");
             }
         }
-        
         if (tab === 'items') {
-             if (formData.unit_price && parseFloat(formData.unit_price) < 0) {
-                 return alert("Price cannot be negative.");
-             }
-             if (formData.tax_rate && parseFloat(formData.tax_rate) < 0) {
-                 return alert("Tax rate cannot be negative.");
-             }
+             if (formData.unit_price && parseFloat(formData.unit_price) < 0) return alert("Price cannot be negative.");
+             if (formData.tax_rate && parseFloat(formData.tax_rate) < 0) return alert("Tax rate cannot be negative.");
         }
-        // ------------------------
 
         const { data: { user } } = await supabase.auth.getUser();
         const payload = { ...formData, user_id: user.id };
@@ -360,7 +430,6 @@ function LibraryManager({ initialTab, onClose }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
             <div className="bg-white w-full max-w-4xl h-[80vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-                {/* Header */}
                 <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <div className="flex gap-2">
                         <TabBtn active={tab === 'clients'} onClick={() => setTab('clients')}>Clients</TabBtn>
@@ -369,9 +438,7 @@ function LibraryManager({ initialTab, onClose }) {
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full"><X size={20} /></button>
                 </div>
-
                 <div className="flex flex-col lg:flex-row h-full overflow-hidden">
-                    {/* Form Panel */}
                     <div className="w-full lg:w-1/3 p-6 border-b lg:border-b-0 lg:border-r border-slate-100 bg-slate-50 overflow-y-auto">
                         <h3 className="font-bold text-slate-800 mb-4 uppercase text-xs tracking-wider">
                             {isEditing ? 'Edit' : 'Add New'} {tab === 'saved_terms' ? 'Term' : tab === 'items' ? 'Product' : 'Client'}
@@ -380,8 +447,8 @@ function LibraryManager({ initialTab, onClose }) {
                             {tab === 'clients' && (
                                 <>
                                     <Input label="Name / Company" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
-                                    <Input label="Email" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                                    <Input label="Phone" type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                                    <Input label="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                                    <Input label="Phone" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                                     <TextArea label="Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                                 </>
                             )}
@@ -390,8 +457,8 @@ function LibraryManager({ initialTab, onClose }) {
                                     <Input label="Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
                                     <TextArea label="Description" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                                     <div className="grid grid-cols-2 gap-2">
-                                        <Input label="Price" type="number" min="0" step="0.01" value={formData.unit_price} onChange={e => setFormData({...formData, unit_price: e.target.value})} />
-                                        <Input label="Tax %" type="number" min="0" step="0.01" value={formData.tax_rate} onChange={e => setFormData({...formData, tax_rate: e.target.value})} />
+                                        <Input label="Price" type="number" value={formData.unit_price} onChange={e => setFormData({...formData, unit_price: e.target.value})} />
+                                        <Input label="Tax %" type="number" value={formData.tax_rate} onChange={e => setFormData({...formData, tax_rate: e.target.value})} />
                                     </div>
                                 </>
                             )}
@@ -406,15 +473,11 @@ function LibraryManager({ initialTab, onClose }) {
                                     {isEditing ? 'Update Item' : 'Save Item'}
                                 </button>
                                 {isEditing && (
-                                    <button type="button" onClick={() => { setIsEditing(null); setFormData({}); }} className="px-4 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 font-medium">
-                                        Cancel
-                                    </button>
+                                    <button type="button" onClick={() => { setIsEditing(null); setFormData({}); }} className="px-4 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 font-medium">Cancel</button>
                                 )}
                             </div>
                         </form>
                     </div>
-
-                    {/* List Panel */}
                     <div className="flex-1 p-6 overflow-y-auto bg-white">
                         {loading ? <p className="text-slate-400 text-center">Loading...</p> : 
                         items.length === 0 ? <p className="text-slate-400 text-center py-10">No items found. Add one on the left!</p> :
@@ -443,87 +506,10 @@ function LibraryManager({ initialTab, onClose }) {
     );
 }
 
-function TabBtn({ active, children, onClick }) {
-    return (
-        <button onClick={onClick} className={`px-4 py-2 rounded-lg text-sm font-bold transition ${active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-200'}`}>
-            {children}
-        </button>
-    );
-}
-
-function Input({ label, value, onChange, type='text', placeholder, required, ...props }) {
-    return (
-        <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{label}</label>
-            <input 
-                type={type} 
-                value={value || ''} 
-                onChange={onChange} 
-                placeholder={placeholder} 
-                required={required} 
-                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition text-sm" 
-                {...props}
-            />
-        </div>
-    );
-}
-
-function TextArea({ label, value, onChange, rows=3, placeholder }) {
-    return (
-        <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{label}</label>
-            <textarea value={value || ''} onChange={onChange} rows={rows} placeholder={placeholder} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition resize-none text-sm" />
-        </div>
-    );
-}
-
-function getStatusColor(status) {
-    switch (status) {
-        case 'paid': return 'bg-green-100 text-green-700 hover:bg-green-200';
-        case 'sent': return 'bg-blue-100 text-blue-700 hover:bg-blue-200';
-        case 'overdue': return 'bg-red-100 text-red-700 hover:bg-red-200';
-        default: return 'bg-slate-100 text-slate-600 hover:bg-slate-200';
-    }
-}
-
-function StatCard({ icon, title, value, color, bg }) {
-    return (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 transition hover:shadow-md h-full">
-            <div className={`p-3 rounded-xl ${bg} ${color}`}>{icon}</div>
-            <div>
-                <p className="text-slate-500 text-sm font-medium">{title}</p>
-                <p className="text-2xl font-bold text-slate-900">{value}</p>
-            </div>
-        </div>
-    );
-}
-
-function LibraryCard({ icon, title, desc, onClick }) {
-    return (
-        <div onClick={onClick} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 transition hover:shadow-md hover:border-blue-300 group cursor-pointer">
-            <div className="p-3 rounded-xl bg-slate-100 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                {icon}
-            </div>
-            <div className="flex-grow">
-                <div className="flex items-center justify-between">
-                    <p className="text-slate-900 font-bold group-hover:text-blue-700 transition-colors">{title}</p>
-                    <ArrowRight size={16} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
-                </div>
-                <p className="text-slate-500 text-xs mt-1">{desc}</p>
-            </div>
-        </div>
-    );
-}
-
-function DashboardSkeleton() {
-    return (
-        <div className="min-h-screen bg-slate-50 p-6 lg:p-10 font-sans">
-            <div className="max-w-7xl mx-auto space-y-8">
-                <div className="flex justify-between items-center"><div className="h-8 w-48 bg-slate-200 rounded animate-pulse"></div><div className="h-10 w-32 bg-slate-200 rounded animate-pulse"></div></div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{[1, 2, 3].map(i => (<div key={i} className="h-32 bg-white rounded-2xl border border-slate-200 shadow-sm animate-pulse"></div>))}</div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{[1, 2, 3].map(i => (<div key={i} className="h-24 bg-white rounded-2xl border border-slate-200 shadow-sm animate-pulse"></div>))}</div>
-                <div className="h-96 bg-white rounded-2xl border border-slate-200 shadow-sm animate-pulse"></div>
-            </div>
-        </div>
-    );
-}
+function TabBtn({ active, children, onClick }) { return <button onClick={onClick} className={`px-4 py-2 rounded-lg text-sm font-bold transition ${active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-200'}`}>{children}</button>; }
+function Input({ label, value, onChange, type='text', placeholder, required }) { return <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">{label}</label><input type={type} value={value || ''} onChange={onChange} placeholder={placeholder} required={required} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition text-sm" /></div>; }
+function TextArea({ label, value, onChange, rows=3, placeholder }) { return <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">{label}</label><textarea value={value || ''} onChange={onChange} rows={rows} placeholder={placeholder} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition resize-none text-sm" /></div>; }
+function getStatusColor(status) { switch (status) { case 'paid': return 'bg-green-100 text-green-700 hover:bg-green-200'; case 'accepted': return 'bg-green-100 text-green-700 hover:bg-green-200'; case 'sent': return 'bg-blue-100 text-blue-700 hover:bg-blue-200'; case 'overdue': return 'bg-red-100 text-red-700 hover:bg-red-200'; case 'declined': return 'bg-slate-200 text-slate-600 hover:bg-slate-300'; default: return 'bg-slate-100 text-slate-600 hover:bg-slate-200'; } }
+function StatCard({ icon, title, value, color, bg }) { return <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 transition hover:shadow-md h-full"><div className={`p-3 rounded-xl ${bg} ${color}`}>{icon}</div><div><p className="text-slate-500 text-sm font-medium">{title}</p><p className="text-2xl font-bold text-slate-900">{value}</p></div></div>; }
+function LibraryCard({ icon, title, desc, onClick }) { return <div onClick={onClick} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 transition hover:shadow-md hover:border-blue-300 group cursor-pointer"><div className="p-3 rounded-xl bg-slate-100 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">{icon}</div><div className="flex-grow"><div className="flex items-center justify-between"><p className="text-slate-900 font-bold group-hover:text-blue-700 transition-colors">{title}</p><ArrowRight size={16} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" /></div><p className="text-slate-500 text-xs mt-1">{desc}</p></div></div>; }
+function DashboardSkeleton() { return <div className="min-h-screen bg-slate-50 p-6 lg:p-10 font-sans"><div className="max-w-7xl mx-auto space-y-8"><div className="flex justify-between items-center"><div className="h-8 w-48 bg-slate-200 rounded animate-pulse"></div><div className="h-10 w-32 bg-slate-200 rounded animate-pulse"></div></div><div className="grid grid-cols-1 md:grid-cols-3 gap-6">{[1, 2, 3].map(i => (<div key={i} className="h-32 bg-white rounded-2xl border border-slate-200 shadow-sm animate-pulse"></div>))}</div><div className="grid grid-cols-1 md:grid-cols-3 gap-6">{[1, 2, 3].map(i => (<div key={i} className="h-24 bg-white rounded-2xl border border-slate-200 shadow-sm animate-pulse"></div>))}</div><div className="h-96 bg-white rounded-2xl border border-slate-200 shadow-sm animate-pulse"></div></div></div>; }

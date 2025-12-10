@@ -19,65 +19,60 @@ const styles = StyleSheet.create({
     lineHeight: 1.5,
     color: THEME.textMain,
     backgroundColor: THEME.white,
-    padding: 0, 
-  },
-  container: {
-    padding: 40,
-    flex: 1,
+    // Increased padding to prevent header overlap on multi-page docs
+    paddingTop: 150, 
+    paddingBottom: 80, 
+    paddingHorizontal: 40,
   },
   
-  // --- HEADER ---
+  // --- HEADER (FIXED) ---
   header: {
+    position: 'absolute',
+    top: 30,
+    left: 40,
+    right: 40,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 30,
     borderBottomWidth: 1,
     borderBottomColor: THEME.border,
-    paddingBottom: 20,
+    paddingBottom: 15,
+    height: 110, // Increased height for wrapping text
   },
   headerLeft: {
-    width: '60%',
-    paddingRight: 20,
+    width: '55%',
+    paddingRight: 10,
   },
   headerRight: {
-    width: '40%',
+    width: '45%',
     alignItems: 'flex-end',
   },
-  
   logoImage: {
     width: 120,
     height: 50,
     objectFit: 'contain',
-    marginBottom: 10,
+    marginBottom: 5,
   },
   brandPlaceholder: {
-    fontSize: 20,
+    fontSize: 18, // Reduced slightly to fit better
     fontWeight: 'bold',
     color: THEME.primary,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 5,
+    marginBottom: 6,
+    lineHeight: 1.5, // Increased line height to fix overlap
   },
-  
   senderAddressBox: {
-    marginTop: 5,
+    marginTop: 2,
   },
   senderText: {
     fontSize: 9,
     color: THEME.textMuted,
     lineHeight: 1.4,
-    fontWeight: 'bold', 
+    marginBottom: 1,
   },
-
-  // Document Title & Meta
   titleBox: {
-    backgroundColor: THEME.bgLight,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 4,
-    marginBottom: 15,
+    marginBottom: 10,
     alignItems: 'flex-end',
-    width: '100%',
   },
   docTitle: {
     fontSize: 22,
@@ -96,14 +91,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metaLabel: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: 'bold',
     color: THEME.textMuted,
-    marginRight: 10,
+    marginRight: 8,
     textTransform: 'uppercase',
   },
   metaValue: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 'bold',
     color: THEME.textMain,
   },
@@ -111,8 +106,9 @@ const styles = StyleSheet.create({
   // --- CLIENT SECTION ---
   clientSection: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 30,
-    paddingVertical: 10,
+    marginTop: 10,
   },
   clientCol: {
     width: '50%',
@@ -123,7 +119,7 @@ const styles = StyleSheet.create({
     color: THEME.accent,
     fontWeight: 'bold',
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: 5,
     letterSpacing: 1,
     borderBottomWidth: 1,
     borderBottomColor: THEME.border,
@@ -131,10 +127,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   clientName: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
     color: THEME.primary,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   clientDetails: {
     fontSize: 9,
@@ -147,58 +143,81 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 20,
     borderRadius: 4,
-    overflow: 'hidden',
   },
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: THEME.primary,
-    paddingVertical: 8,
+    paddingVertical: 6,
     paddingHorizontal: 10,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
   },
   th: {
     color: THEME.white,
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: 'bold',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: THEME.border,
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 10,
   },
   td: {
     fontSize: 9,
     color: THEME.textMain,
   },
-  
-  // Column Widths
   colDesc: { width: '45%' },
   colQty: { width: '10%', textAlign: 'center' },
   colPrice: { width: '15%', textAlign: 'right' },
   colTax: { width: '10%', textAlign: 'right' },
   colTotal: { width: '20%', textAlign: 'right' },
 
-  // --- SUMMARY SECTION ---
-  summarySection: {
+  // --- BOTTOM SECTION ---
+  bottomSection: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     marginBottom: 30,
+    marginTop: 10,
+    break: false,
+  },
+  bankDetailsBlock: {
+    width: '50%',
+    paddingRight: 20,
   },
   summaryBlock: {
     width: '45%',
     backgroundColor: THEME.bgLight,
-    padding: 15,
+    padding: 12,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: THEME.border,
   },
+  paymentLabel: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    color: THEME.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+    marginTop: 6,
+  },
+  paymentText: {
+    fontSize: 9,
+    color: THEME.textMain,
+    fontWeight: 'bold',
+  },
+  paymentDetailsText: {
+    fontSize: 9,
+    color: THEME.textMain,
+    lineHeight: 1.4,
+    whiteSpace: 'pre-wrap', // Preserves newlines
+  },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   summaryLabel: {
     fontSize: 9,
@@ -213,58 +232,62 @@ const styles = StyleSheet.create({
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 2,
     borderTopColor: THEME.primary,
   },
   totalLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
     color: THEME.primary,
     textTransform: 'uppercase',
   },
   totalValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
     color: THEME.accent,
   },
 
-  // --- FOOTER SECTION ---
+  // --- FOOTER (FIXED) ---
   footerSection: {
     position: 'absolute',
     bottom: 30,
     left: 40,
     right: 40,
+    height: 80, // Increased height to allow multi-line notes
   },
   notesBox: {
-    marginBottom: 20,
-    padding: 10,
+    marginBottom: 8,
+    padding: 8,
     borderLeftWidth: 3,
     borderLeftColor: THEME.border,
     backgroundColor: THEME.bgLight,
+    // Allow height to grow
+    display: 'flex',
+    flexDirection: 'column',
   },
   notesTitle: {
     fontSize: 9,
     fontWeight: 'bold',
     color: THEME.textMain,
-    marginBottom: 3,
+    marginBottom: 8,
     textTransform: 'uppercase',
   },
   notesText: {
     fontSize: 9,
     color: THEME.textMuted,
     fontStyle: 'italic',
+    whiteSpace: 'pre-wrap', // CRITICAL: Allows text wrapping and newlines
     lineHeight: 1.4,
   },
   footerText: {
     fontSize: 8,
-    color: '#cbd5e1', // Very light gray
+    color: '#cbd5e1', 
     textAlign: 'center',
     borderTopWidth: 1,
     borderTopColor: THEME.border,
-    paddingTop: 15,
-    marginTop: 10,
+    paddingTop: 10,
   },
 });
 
@@ -282,115 +305,129 @@ const formatCurrency = (amount, currency = 'USD') => {
 const InvoicePDF = ({ document }) => (
   <Document>
     <Page size="A4" style={styles.page}>
-      <View style={styles.container}>
+      
+      {/* 1. FIXED HEADER */}
+      <View style={styles.header} fixed>
+        <View style={styles.headerLeft}>
+          {document.logo_url ? (
+            <Image src={document.logo_url} style={styles.logoImage} />
+          ) : (
+            <Text style={styles.brandPlaceholder}>{document.sender_name || 'COMPANY NAME'}</Text>
+          )}
+          <View style={styles.senderAddressBox}>
+              <Text style={styles.senderText}>{document.sender_name}</Text>
+              <Text style={styles.senderText}>{document.sender_email}</Text>
+              {document.sender_phone && <Text style={styles.senderText}>{document.sender_phone}</Text>}
+              <Text style={styles.senderText}>{document.sender_address}</Text>
+          </View>
+        </View>
+
+        <View style={styles.headerRight}>
+          <View style={styles.titleBox}>
+            <Text style={styles.docTitle}>{document.type || 'INVOICE'}</Text>
+          </View>
+          <View style={styles.metaList}>
+            <View style={styles.metaItem}>
+              <Text style={styles.metaLabel}>Ref #:</Text>
+              <Text style={styles.metaValue}>{document.document_number}</Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Text style={styles.metaLabel}>Issue Date:</Text>
+              <Text style={styles.metaValue}>{document.issue_date}</Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Text style={styles.metaLabel}>Due Date:</Text>
+              <Text style={styles.metaValue}>{document.due_date}</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* 2. SCROLLABLE CONTENT */}
+      
+      <View style={styles.clientSection}>
+        <View style={styles.clientCol}>
+          <Text style={styles.sectionLabel}>Bill To</Text>
+          <Text style={styles.clientName}>{document.client_name}</Text>
+          <Text style={styles.clientDetails}>{document.client_email}</Text>
+          {document.client_phone && <Text style={styles.clientDetails}>{document.client_phone}</Text>}
+          <Text style={styles.clientDetails}>{document.client_address}</Text>
+        </View>
+      </View>
+
+      <View style={styles.table}>
+        <View style={styles.tableHeader} fixed>
+          <Text style={[styles.th, styles.colDesc]}>Description</Text>
+          <Text style={[styles.th, styles.colQty]}>Qty</Text>
+          <Text style={[styles.th, styles.colPrice]}>Price</Text>
+          <Text style={[styles.th, styles.colTax]}>Tax</Text>
+          <Text style={[styles.th, styles.colTotal]}>Amount</Text>
+        </View>
         
-        {/* HEADER */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            {document.logo_url ? (
-              <Image src={document.logo_url} style={styles.logoImage} />
-            ) : (
-              <Text style={styles.brandPlaceholder}>{document.sender_name || 'COMPANY NAME'}</Text>
-            )}
-            <View style={styles.senderAddressBox}>
-                <Text style={styles.senderText}>{document.sender_name}</Text>
-                <Text style={styles.senderText}>{document.sender_email}</Text>
-                {/* NEW: Sender Phone */}
-                {document.sender_phone && <Text style={styles.senderText}>{document.sender_phone}</Text>}
-                <Text style={styles.senderText}>{document.sender_address}</Text>
+        {document.items && document.items.map((item, index) => (
+          // FIX: Added wrap={false} to ensure rows don't break across pages
+          <View key={index} style={[styles.tableRow, { backgroundColor: index % 2 !== 0 ? THEME.bgLight : THEME.white }]} wrap={false}>
+            <View style={styles.colDesc}>
+               <Text style={[styles.td, { fontWeight: 'bold' }]}>{item.name}</Text>
+               {item.description ? <Text style={{ fontSize: 8, color: THEME.textMuted, marginTop: 2 }}>{item.description}</Text> : null}
             </View>
+            <Text style={[styles.td, styles.colQty]}>{item.quantity}</Text>
+            <Text style={[styles.td, styles.colPrice]}>{formatCurrency(item.unit_price, document.currency)}</Text>
+            <Text style={[styles.td, styles.colTax]}>{item.tax_rate}%</Text>
+            <Text style={[styles.td, styles.colTotal]}>{formatCurrency(item.amount, document.currency)}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.bottomSection} wrap={false}>
+          <View style={styles.bankDetailsBlock}>
+              {(document.sender_tax_id || document.payment_details) && (
+                  <>
+                      <Text style={styles.sectionLabel}>Payment Info</Text>
+                      {document.sender_tax_id && (
+                          <>
+                              <Text style={styles.paymentLabel}>Tax ID / TRN:</Text>
+                              <Text style={styles.paymentText}>{document.sender_tax_id}</Text>
+                          </>
+                      )}
+                      {document.payment_details && (
+                          <>
+                              <Text style={styles.paymentLabel}>Bank Details:</Text>
+                              <Text style={styles.paymentDetailsText}>{document.payment_details}</Text>
+                          </>
+                      )}
+                  </>
+              )}
           </View>
 
-          <View style={styles.headerRight}>
-            <View style={styles.titleBox}>
-              <Text style={styles.docTitle}>{document.type || 'INVOICE'}</Text>
-            </View>
-            <View style={styles.metaList}>
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>Ref #:</Text>
-                <Text style={styles.metaValue}>{document.document_number}</Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>Issue Date:</Text>
-                <Text style={styles.metaValue}>{document.issue_date}</Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>Due Date:</Text>
-                <Text style={styles.metaValue}>{document.due_date}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* CLIENT DETAILS BAR */}
-        <View style={styles.clientSection}>
-          <View style={styles.clientCol}>
-            <Text style={styles.sectionLabel}>Bill To</Text>
-            <Text style={styles.clientName}>{document.client_name}</Text>
-            <Text style={styles.clientDetails}>{document.client_email}</Text>
-            {/* NEW: Client Phone */}
-            {document.client_phone && <Text style={styles.clientDetails}>{document.client_phone}</Text>}
-            <Text style={styles.clientDetails}>{document.client_address}</Text>
-          </View>
-        </View>
-
-        {/* ITEMS TABLE */}
-        <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.th, styles.colDesc]}>Description</Text>
-            <Text style={[styles.th, styles.colQty]}>Qty</Text>
-            <Text style={[styles.th, styles.colPrice]}>Price</Text>
-            <Text style={[styles.th, styles.colTax]}>Tax</Text>
-            <Text style={[styles.th, styles.colTotal]}>Amount</Text>
-          </View>
-          
-          {document.items && document.items.map((item, index) => (
-            <View key={index} style={[styles.tableRow, { backgroundColor: index % 2 !== 0 ? THEME.bgLight : THEME.white }]}>
-              <View style={styles.colDesc}>
-                 <Text style={[styles.td, { fontWeight: 'bold' }]}>{item.name}</Text>
-                 {item.description ? <Text style={{ fontSize: 8, color: THEME.textMuted, marginTop: 2 }}>{item.description}</Text> : null}
-              </View>
-              <Text style={[styles.td, styles.colQty]}>{item.quantity}</Text>
-              <Text style={[styles.td, styles.colPrice]}>{formatCurrency(item.unit_price, document.currency)}</Text>
-              <Text style={[styles.td, styles.colTax]}>{item.tax_rate}%</Text>
-              <Text style={[styles.td, styles.colTotal]}>{formatCurrency(item.amount, document.currency)}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* TOTALS & NOTES */}
-        <View style={styles.summarySection}>
           <View style={styles.summaryBlock}>
-            <View style={styles.summaryRow}>
+              <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
               <Text style={styles.summaryValue}>{formatCurrency(document.subtotal, document.currency)}</Text>
-            </View>
-            <View style={styles.summaryRow}>
+              </View>
+              <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Tax Amount</Text>
               <Text style={styles.summaryValue}>{formatCurrency(document.tax_total, document.currency)}</Text>
-            </View>
-            <View style={styles.totalRow}>
+              </View>
+              <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total Due</Text>
               <Text style={styles.totalValue}>{formatCurrency(document.grand_total, document.currency)}</Text>
-            </View>
+              </View>
           </View>
-        </View>
-
-        {/* FOOTER AREA */}
-        <View style={styles.footerSection}>
-          {document.notes ? (
-            <View style={styles.notesBox}>
-              <Text style={styles.notesTitle}>Notes & Payment Terms</Text>
-              <Text style={styles.notesText}>{document.notes}</Text>
-            </View>
-          ) : null}
-          
-          <Text style={styles.footerText}>
-            Thank you for your business. Generated by ProDoc AI.
-          </Text>
-        </View>
-
       </View>
+
+      {/* 3. FIXED FOOTER */}
+      <View style={styles.footerSection} fixed>
+        {document.notes ? (
+          <View style={styles.notesBox}>
+            <Text style={styles.notesTitle}>Notes & Payment Terms</Text>
+            {/* Added whiteSpace: 'pre-wrap' to allow multi-line text */}
+            <Text style={styles.notesText}>{document.notes}</Text>
+          </View>
+        ) : null}
+        <Text style={styles.footerText}>Thank you for your business. Generated by ProDoc AI.</Text>
+      </View>
+
     </Page>
   </Document>
 );
